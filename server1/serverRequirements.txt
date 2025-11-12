@@ -1,0 +1,50 @@
+Nodejs express with frontend and backend on same server in prod.
+
+but seperate servers in local. 
+
+frontend/ folder with  vue 3 and vite 
+
+with 4 sub folders & 4 sub pages, each will use vue 3 to be a SPA but be seperate from each other
+ public/i.html 
+ user/i.html 
+ adminLogin/l.html
+ and admin/a.html 
+
+ 
+ and make login specific to each user type,  
+with JWT auth and cookies.
+backend/ folder with express server with REST API and serve static files from 
+frontend/dist/public
+frontend/dist/user
+frontend/dist/adminLogin
+frontend/dist/admin
+folders in prod.
+
+and a filter will check that user has proper auth to access user and admin folders. 
+So non logged in user cannot even request the static files from those folders.
+Some of the common css, js, images, etc will be in public folder and use by other 3.
+frontend/dist/adminLogin is public but hopefully not well known.
+The backend server will run on port 8434 in local and per passenger config in prod.
+In local we will run vite seperately and server will have CORS.
+The backend server will run on port 3000 in local.
+The backend server will have endpoints for login, logout, and user/admin specific data.
+Use express for backend with custom auth middleware.
+public folder will not have a register page. Only a get an invite screen where user can enter year of birth, email and name.
+Admin pages will have pages to list, disable, delete and create users.
+User can create a public link (GET) or a public page (POST with captcha but no other auth) to share with their trusted contacts.
+These pages will be random URLs of the form public/contact/<random-string> and will be stored in the database.
+public/contact will be a seperate folder and a seperate SPA that will show a form to submit the contact info.
+The public/contact SPA will use vue 3 and vite as well.
+The backend will have endpoints to handle the public/contact form submissions.
+Maria Db persistence
+All tables to have a created_at and updated_at timestamp columns.
+Root table for people (users, contacts, admins, invites):
+Person table to have id, name, email, account_status (active/disabled/pending/expired), created_at, updated_at, expired_at
+Users table to have id,  password_hash, balance_tokens, created_at, updated_at
+Invites table to have id, email, invite_code, status (pending/accepted/expired), created_at, updated_at
+Contacts table to have id, user_id, name, email, phone, message, created_at, updated_at
+
+## Versions (pinned so as to match what is in production, have a small hosting plan so less RAM used is better)
+- Node.js: 20.18.0 (nvm)
+- npm: 10.x
+- MariaDB: 10.6.19
