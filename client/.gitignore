@@ -1,0 +1,230 @@
+# ===================================
+# Operating System
+# ===================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+# ===================================
+# Node.js
+# ===================================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.npm
+.yarn-integrity
+package-lock.json
+yarn.lock
+
+# ===================================
+# React Native
+# ===================================
+
+# Metro bundler
+.metro-health-check*
+
+# Expo
+.expo/
+.expo-shared/
+
+# React Native debugger
+.vscode/.react/
+
+# ===================================
+# Android
+# ===================================
+
+# Build outputs
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/release/
+android/app/debug/
+android/captures/
+android/.cxx/
+
+# Signing files
+*.apk
+*.aab
+*.jks
+*.keystore
+!debug.keystore
+
+# Android Studio
+android/.idea/
+android/*.iml
+android/gradle.properties
+
+# NDK
+android/obj/
+android/libs/
+
+# ===================================
+# iOS
+# ===================================
+
+# Build outputs
+ios/build/
+ios/Pods/
+ios/DerivedData/
+
+# CocoaPods
+ios/*.xcworkspace/
+!ios/*.xcworkspace/contents.xcworkspacedata
+
+# Xcode
+ios/*.xcuserstate
+ios/*.xcuserdatad/
+ios/*.pbxuser
+ios/*.mode1v3
+ios/*.mode2v3
+ios/*.perspectivev3
+ios/*.moved-aside
+ios/xcuserdata/
+
+# ===================================
+# Web
+# ===================================
+
+build/
+dist/
+.cache/
+public/bundle.js
+public/bundle.js.map
+
+# ===================================
+# Environment & Secrets
+# ===================================
+
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Secrets
+secrets.json
+credentials.json
+
+# ===================================
+# IDE & Editors
+# ===================================
+
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# IntelliJ IDEA / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Eclipse
+.project
+.settings/
+.classpath
+.metadata/
+
+# ===================================
+# Testing & Coverage
+# ===================================
+
+coverage/
+.nyc_output/
+*.lcov
+.jest/
+__tests__/__snapshots__/
+
+# ===================================
+# TypeScript
+# ===================================
+
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ===================================
+# Logs
+# ===================================
+
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ===================================
+# Temporary Files
+# ===================================
+
+tmp/
+temp/
+*.tmp
+*.cache
+
+# ===================================
+# Misc
+# ===================================
+
+# Buck
+buck-out/
+.buckconfig.local
+.buckd/
+.buckversion
+
+# Watchman
+.watchmanconfig
+
+# Gradle daemon
+.gradle/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Bundle artifact
+*.jsbundle
+
+# CocoaPods
+ios/Pods/

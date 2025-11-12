@@ -1,0 +1,22 @@
+rootProject.name = 'ReachMe'pluginManagement {
+
+apply from: file("../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesSettingsGradle(this)    repositories {
+
+include ':app'        google()
+
+includeBuild('../node_modules/@react-native/gradle-plugin')        mavenCentral()
+
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "ReachMe"
+include ':app'

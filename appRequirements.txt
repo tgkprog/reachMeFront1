@@ -1,0 +1,361 @@
+````markdown
+# ReachMe — V1 Design & Implementation (Flutter + Native Android)  
+Targets: **Android (full)** and **Web (notifications + WebSocket)**
+
+---
+
+## 1. App summary (one-line)
+Flutter UI + logic; Android native (Kotlin) for system features (foreground service, overlay, alarms, DND, exact alarms, call actions). Web: UI + browser notifications only.
+
+---
+
+## 2. Screens & UX
+
+**Screen 1 — Login / About (same screen)**  
+- OAuth providers: Google, GitHub, Facebook (use `flutter_appauth` / `google_sign_in`)  
+- After OAuth get email → POST `/api/user/check` with `{email}` → server returns allow|deny.  
+- If allowed → proceed to Screen 2 and save local encrypted profile (firstName, lastName, email, photoUrl).  
+- If user taps login again within 3 minutes of previous check → show message: `Please wait 3 minutes before trying again` (no visible timer).  
+- About content loaded from `src/resources/about.html`. Replace token `<current-year-yyyy>` in code with current year before showing.
+
+**Screen 2 — Controls (after login)**  
+- Sleep for X days Y hours Z minutes (do not poll server during sleep).  
+- Mute for X days Y hours Z minutes (poll but silent; no alarm).  
+- Poll time controls: two dropdowns — minutes (0,1,2) and seconds (10,20,30,40,50). Effective poll = `max(user_choice, server.min_poll_time)`. Show current chosen value.  
+- Menu: About, Check All Permissions, Logout (confirm).  
+- Permissions checked once at startup; “Check All Permissions” triggers permission flow for missing ones.
+
+**Special overlay UI (on alert)**  
+- Small floating UI ~15% width at top-right with 3 buttons:  
+  - Green (OK) — dismiss alarm & open app notification.  
+  - X (Stop) — stop alarm but keep sticky notification.  
+  - Sleep (Snooze) — hide UI & remind after configured snooze time.  
+- If overlay permission not granted, show an in-app full small Activity instead.
+
+---
+
+## 3. Server commands (payloads from `GET reachme/check`)  
+Server responses have `type` field. Client must handle:
+
+1. `download`  
+   - `{ type: "download", id:"fileId", url:"https://..." }` → client GET `/getFile?id=fileId` or download URL, store locally with id.
+
+2. `alert`  
+   - `{ type:"alert", tone:"preset" | "file", fileId?: "...", title:"", msg:"" }` → play alarm (preset or custom file), show overlay UI, create sticky notification.
+
+3. `forward`  
+   - `{ type:"forward", target:"userId", msg:"..." }` → attempt to forward notification via server API; client may forward metadata to backend (note: local SMS/USSD forwarding is carrier-dependent).
+
+4. `config_mute` / `mute`  
+   - `{ type:"mute", duration_ms: 3600000 }` → set mute (no alarm) until expiry.
+
+5. `config_sleep` / `sleep` / `wake`  
+   - `{ type:"sleep", duration_ms: ... }` or `{ type:"wake" }` → stop polling until expiry or resume.
+
+6. `logout_keep`  
+   - `{ type:"logout", keepData: true }` → clear session, stop service, keep local files.
+
+7. `logout_wipe`  
+   - `{ type:"wipe" }` → clear session and delete local user data and files.
+
+Notes: include server-sent `min_poll_time` in seconds; client uses `effective_poll = max(user_setting, min_poll_time)`.
+
+---
+
+## 4. Android permissions & manifest (copyable)
+
+```xml
+<!-- Core -->
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+<uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/> <!-- draw over apps -->
+<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+<uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+
+<!-- Exact alarm (Android 12+) -->
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+<uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+
+<!-- Storage & downloads -->
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+
+<!-- Call control (if used later) -->
+<uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+<uses-permission android:name="android.permission.CALL_PHONE"/>
+<uses-permission android:name="android.permission.ANSWER_PHONE_CALLS"/>
+<uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS"/>
+<uses-permission android:name="android.permission.MANAGE_OWN_CALLS"/>
+````
+
+Runtime: request `POST_NOTIFICATIONS` (Android 13+), storage runtime, and explicit system settings screens for DND access, overlay, exact alarms, ignore battery optimization.
+
+---
+
+## 5. Key Android behaviors (rules)
+
+* **Swipe from recents**: Activity killed; **Foreground Service continues** (if started).
+* **OS kills service for RAM**: `START_STICKY` → system restarts service. Do not auto-show UI on restart; only show on alert.
+* **Boot**: use `RECEIVE_BOOT_COMPLETED` to restart Foreground Service.
+* **Force Stop**: app will not restart until user manually opens it. No workaround.
+* **Overlay only works if user granted `SYSTEM_ALERT_WINDOW`.** Otherwise fallback to in-app Activity.
+
+---
+
+## 6. Audio / Alarm behavior and code notes
+
+**Goal**: alarm audible even in DND / Silent (Android-only). Requirements:
+
+* User grants **Do Not Disturb** access (`ACCESS_NOTIFICATION_POLICY`).
+* Use **ALARM** audio usage and set alarm stream volume.
+* Request exact alarms (API 31+) with `SCHEDULE_EXACT_ALARM`.
+
+Kotlin sample:
+
+```kotlin
+val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+val maxVol = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+audio.setStreamVolume(AudioManager.STREAM_ALARM, maxVol, 0)
+
+val attrs = AudioAttributes.Builder()
+    .setUsage(AudioAttributes.USAGE_ALARM)
+    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+    .build()
+
+val player = MediaPlayer.create(context, R.raw.alert_tone)
+player.setAudioAttributes(attrs)
+player.isLooping = true
+player.start()
+```
+
+To request schedule exact alarms permission:
+
+```kotlin
+val am = context.getSystemService(AlarmManager::class.java)
+if (!am.canScheduleExactAlarms()) {
+    startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
+}
+```
+
+To request DND access:
+
+```kotlin
+val nm = context.getSystemService(NotificationManager::class.java)
+if (!nm.isNotificationPolicyAccessGranted) {
+    startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+}
+```
+
+---
+
+## 7. Foreground service & overlay (Kotlin snippets)
+
+**Start Foreground Service**
+
+```kotlin
+class CoreService: Service() {
+  override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    startForeground(1, buildNotification())
+    // keep a WebSocket or FCM listener here
+    return START_STICKY
+  }
+}
+```
+
+**Show overlay (TYPE_APPLICATION_OVERLAY)**
+
+```kotlin
+val params = WindowManager.LayoutParams(
+  (dm.widthPixels * 0.35).toInt(),
+  WindowManager.LayoutParams.WRAP_CONTENT,
+  WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+  WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+  PixelFormat.TRANSLUCENT
+)
+params.gravity = Gravity.TOP or Gravity.END
+windowManager.addView(overlayView, params)
+```
+
+**Full-screen intent (only if needed)** — not used for V1 because you want small overlay.
+
+---
+
+## 8. Flutter ⇄ Native integration (where & how)
+
+Use a single MethodChannel: `"com.reachme/system"`
+
+**Dart side (examples):**
+
+```dart
+const platform = MethodChannel('com.reachme/system');
+
+Future<void> nativeShowOverlay(Map args) async {
+  await platform.invokeMethod('showOverlay', args);
+}
+
+Future<void> nativePlayAlarm(Map args) async {
+  await platform.invokeMethod('playAlarm', args);
+}
+
+Future<void> nativeDownload(String url, String id) async {
+  await platform.invokeMethod('downloadFile', {'url': url, 'id': id});
+}
+```
+
+**Kotlin side** (`MainActivity.configureFlutterEngine`):
+
+```kotlin
+MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.reachme/system")
+  .setMethodCallHandler { call, result ->
+    when(call.method) {
+      "showOverlay" -> { OverlayService.show(this, call.arguments as Map); result.success(null) }
+      "playAlarm" -> { AlarmHandler.play(this, call.arguments as Map); result.success(null) }
+      "downloadFile" -> { DownloadHandler.download(this, call.arguments as Map); result.success(null) }
+      else -> result.notImplemented()
+    }
+  }
+```
+
+---
+
+## 9. Polling vs Push (recommended flow)
+
+* **Prefer push (FCM)** for alarm events. But also support periodic `reachme/check` polling as fallback.
+* Polling behavior:
+
+  * Client polls `GET /reachme/check?deviceId=...` at `effective_poll` interval.
+  * After an `allow login check` POST, debounce POST checks for 3 minutes (UI message).
+* Server can send `min_poll_time` in response; client must respect it.
+
+---
+
+## 10. File storage & getFile API
+
+* Downloaded audio files saved under app-private or external downloads directory with mapping `{fileId -> localPath}`.
+* API: `GET /getFile?id=fileId` or direct URL from `download` command.
+* When alarm payload references `fileId`, native playback must use local downloaded file.
+
+---
+
+## 11. Security & storage
+
+* Store user profile and tokens **encrypted** locally (use `flutter_secure_storage`).
+* Logout variants:
+
+  * `logout_keep` = clear auth token, stop service, keep files.
+  * `logout_wipe` = clear auth token, stop service, delete database, files.
+
+---
+
+## 12. Web behavior (V1)
+
+* Web client authenticates via OAuth, then polls or keeps WebSocket.
+* `alert` → browser notification (`Notification API`) and HTML5 audio (if tab active).
+* No overlay, no DND bypass, no background when tab closed (use service workers to handle push if deployed).
+
+---
+
+## 13. Permission-check flow (one-time at startup and via menu)
+
+1. At first run or via "Check All Permissions":
+
+   * If overlay not granted → open `Settings.ACTION_MANAGE_OVERLAY_PERMISSION`.
+   * If DND not granted → open `Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS`.
+   * If exact alarm not allowed → open `Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM`.
+   * If battery optimization not ignored → ask `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
+   * Request runtime `POST_NOTIFICATIONS`, `STORAGE` as required.
+
+2. Keep a local flag `permissionsAsked=true` so you don't ask repeatedly.
+
+---
+
+## 14. Developer notes / Why Kotlin for Android internals
+
+Flutter cannot implement:
+
+* Foreground OS services that survive process kills and boots
+* Application overlay windows (`TYPE_APPLICATION_OVERLAY`)
+* Modify ALARM stream & DND policy
+* Schedule exact alarms & BootReceiver behavior
+  Thus small Kotlin modules are required and invoked via `MethodChannel`. UI and app logic remain in Dart.
+
+---
+
+## 15. Quick file & code map (starter)
+
+```
+/lib
+  main.dart
+  auth_service.dart
+  poll_service.dart   // manage poll timer & web socket
+  background_bridge.dart // method channel wrapper
+  settings_page.dart
+  overlay_stub.dart // fallback Activity route if no overlay
+
+/android
+  src/main/kotlin/.../MainActivity.kt
+  src/main/kotlin/.../CoreService.kt
+  src/main/kotlin/.../OverlayService.kt
+  src/main/kotlin/.../AlarmHandler.kt
+  src/main/kotlin/.../DownloadHandler.kt
+  src/main/AndroidManifest.xml (permissions)
+```
+
+---
+
+## 16. Acceptance checklist (V1)
+
+* [ ] OAuth login + POST `/api/user/check` with debounce 3 minutes.
+* [ ] Save encrypted user profile.
+* [ ] Poll or accept push for `/reachme/check`.
+* [ ] Handle server command types (download, alert, forward, mute, sleep, logout, wipe).
+* [ ] Foreground service running; restart on BOOT and OS-restart (not Force Stop).
+* [ ] Overlay UI with 3 buttons and draggable/movable.
+* [ ] Alarm plays using ALARM usage and can bypass DND after user grants DND access.
+* [ ] About page loads `src/resources/about.html` and replaces `<current-year-yyyy>` with runtime year.
+* [ ] Web client handles same API types with browser-friendly fallbacks.
+
+---
+
+## 17. Next-step: starter code snippets (Flutter)
+
+**background_bridge.dart**
+
+```dart
+import 'package:flutter/services.dart';
+class BackgroundBridge {
+  static const _ch = MethodChannel('com.reachme/system');
+
+  static Future<void> showOverlay(Map args) => _ch.invokeMethod('showOverlay', args);
+  static Future<void> playAlarm(Map args) => _ch.invokeMethod('playAlarm', args);
+  static Future<void> downloadFile(String url, String id) => _ch.invokeMethod('downloadFile', {'url':url,'id':id});
+}
+```
+
+**poll_service.dart (pseudo)**
+
+```dart
+void startPolling(Duration interval) async {
+  while(running) {
+    final resp = await http.get(Uri.parse('$base/reachme/check?device=$id'));
+    handleServerResponse(resp);
+    await Future.delayed(interval);
+  }
+}
+```
+
+---
+
+## 18. Final notes (short)
+
+* All heavy system features are Android-only. Web provides graceful fallback.
+* Force Stop is irreversible until user opens app. Document this in onboarding.
+* Keep permission requests minimal and explain why each is needed in the UI.
+* Server must sign destructive commands (`wipe`) or require auth to prevent abuse.
+
+---
+
+```
+```

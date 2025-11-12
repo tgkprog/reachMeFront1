@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About ReachMe</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            padding: 20px;
+            line-height: 1.6;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        h1 {
+            color: #2196F3;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #1976D2;
+            font-size: 20px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        p {
+            margin-bottom: 10px;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        .feature {
+            background-color: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .permission {
+            background-color: #FFF9C4;
+            padding: 10px;
+            margin: 8px 0;
+            border-left: 4px solid #FBC02D;
+            border-radius: 4px;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>ReachMe</h1>
+    <p><strong>Version:</strong> 1.0.0</p>
+    <p><strong>Platform:</strong> React Native (Android + Web)</p>
+    
+    <h2>About</h2>
+    <p>
+        ReachMe is a critical notification system designed to ensure important alerts reach you 
+        even when your device is on Do Not Disturb mode. Perfect for on-call professionals, 
+        emergency contacts, and anyone who needs guaranteed notification delivery.
+    </p>
+
+    <h2>Key Features</h2>
+    
+    <div class="feature">
+        <strong>🔔 DND Bypass (Android)</strong>
+        <p>Alarms play even when your phone is in Do Not Disturb mode, ensuring you never miss critical alerts.</p>
+    </div>
+
+    <div class="feature">
+        <strong>📱 Overlay Notifications (Android)</strong>
+        <p>Floating overlay window with three action buttons (OK, Stop, Snooze) appears on top of all apps.</p>
+    </div>
+
+    <div class="feature">
+        <strong>⚡ Foreground Service (Android)</strong>
+        <p>Service runs continuously in the background, surviving app kills and device reboots.</p>
+    </div>
+
+    <div class="feature">
+        <strong>🌐 Cross-Platform</strong>
+        <p>Works on Android devices and web browsers with graceful feature degradation.</p>
+    </div>
+
+    <div class="feature">
+        <strong>🔐 OAuth Authentication</strong>
+        <p>Secure login with Google, GitHub, or Facebook accounts.</p>
+    </div>
+
+    <div class="feature">
+        <strong>😴 Sleep & Mute Controls</strong>
+        <p>Temporarily disable polling or mute alarms for a specified duration.</p>
+    </div>
+
+    <div class="feature">
+        <strong>🎵 Custom Sounds</strong>
+        <p>Download and play custom alarm tones from the server.</p>
+    </div>
+
+    <div class="feature">
+        <strong>⏰ Configurable Polling</strong>
+        <p>Adjust how frequently the app checks for new alerts (10 seconds to 3 minutes).</p>
+    </div>
+
+    <h2>Required Permissions (Android)</h2>
+    <p>To function properly, ReachMe requires the following special permissions:</p>
+
+    <div class="permission">
+        <strong>📲 Display Over Other Apps</strong>
+        <p>Required to show floating overlay notifications on top of other apps.</p>
+    </div>
+
+    <div class="permission">
+        <strong>🔕 Do Not Disturb Access</strong>
+        <p>Allows alarms to play even when your device is in Do Not Disturb mode.</p>
+    </div>
+
+    <div class="permission">
+        <strong>⏰ Alarms & Reminders</strong>
+        <p>Enables scheduling exact alarm times for snooze functionality.</p>
+    </div>
+
+    <div class="permission">
+        <strong>🔋 Battery Optimization (Unrestricted)</strong>
+        <p>Prevents the system from killing the background service to save battery.</p>
+    </div>
+
+    <div class="permission">
+        <strong>🔔 Notifications</strong>
+        <p>Required to display foreground service notification and alerts.</p>
+    </div>
+
+    <h2>How It Works</h2>
+    <ol>
+        <li>Login with your authorized account (Google/GitHub/Facebook)</li>
+        <li>Grant all required permissions when prompted</li>
+        <li>The app polls your server at regular intervals for new commands</li>
+        <li>When an alert is received, it plays an alarm (even in DND mode) and shows an overlay</li>
+        <li>Use Sleep mode to temporarily stop checking for alerts</li>
+        <li>Use Mute mode to check for alerts but not play alarms</li>
+    </ol>
+
+    <h2>Privacy & Security</h2>
+    <ul>
+        <li>All sensitive data is stored in encrypted storage on device</li>
+        <li>OAuth tokens are never logged or transmitted insecurely</li>
+        <li>Downloaded audio files are stored in app-private storage</li>
+        <li>No data is collected or shared with third parties</li>
+    </ul>
+
+    <h2>Support</h2>
+    <p>For issues, questions, or feedback, please contact your system administrator or visit the project repository.</p>
+
+    <div class="footer">
+        <p>&copy; <current-year-yyyy> ReachMe. All rights reserved.</p>
+        <p>Built with React Native</p>
+    </div>
+</body>
+</html>
