@@ -2,8 +2,7 @@ import axios, {AxiosInstance} from 'axios';
 import {PollResponse, ServerCommand} from '../types';
 import {StorageService} from './StorageService';
 import {CommandHandler} from './CommandHandler';
-
-const API_BASE_URL = 'https://api.reachme.example.com';
+import {config} from '../config';
 
 export class PollService {
   private api: AxiosInstance;
@@ -16,7 +15,7 @@ export class PollService {
     this.deviceId = deviceId;
     this.commandHandler = new CommandHandler();
     this.api = axios.create({
-      baseURL: API_BASE_URL,
+      baseURL: config.api.baseUrl,
       timeout: 30000,
     });
 
@@ -60,9 +59,7 @@ export class PollService {
     }
 
     try {
-      const response = await this.api.get<PollResponse>(
-        `/reachme/check?deviceId=${this.deviceId}`,
-      );
+      const response = await this.api.get<PollResponse>(`/reachme/check?deviceId=${this.deviceId}`);
 
       const {commands, min_poll_time} = response.data;
 
@@ -70,13 +67,11 @@ export class PollService {
       if (min_poll_time) {
         const currentSettings = await StorageService.getPollSettings();
         if (currentSettings) {
-          const userPollTime =
-            currentSettings.minutes * 60 + currentSettings.seconds;
+          const userPollTime = currentSettings.minutes * 60 + currentSettings.seconds;
           const effectivePollTime = Math.max(userPollTime, min_poll_time);
-          
+
           // If effective poll time changed, restart polling
-          const currentInterval = this.pollTimer ? 
-            (this.pollTimer as any)._idleTimeout : 0;
+          const currentInterval = this.pollTimer ? (this.pollTimer as any)._idleTimeout : 0;
           if (effectivePollTime * 1000 !== currentInterval) {
             this.stopPolling();
             await this.startPolling(effectivePollTime * 1000);
@@ -95,12 +90,16 @@ export class PollService {
     }
   }
 
-  async updatePollInterval(minutes: number, seconds: number, minPollTime: number = 0): Promise<void> {
+  async updatePollInterval(
+    minutes: number,
+    seconds: number,
+    minPollTime: number = 0,
+  ): Promise<void> {
     await StorageService.savePollSettings(minutes, seconds);
-    
+
     const userPollTime = minutes * 60 + seconds;
     const effectivePollTime = Math.max(userPollTime, minPollTime);
-    
+
     // Restart polling with new interval
     this.stopPolling();
     await this.startPolling(effectivePollTime * 1000);

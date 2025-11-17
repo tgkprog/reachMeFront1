@@ -1,16 +1,14 @@
 import axios, {AxiosInstance} from 'axios';
 import {User, UserCheckResponse} from '@types/index';
 import {StorageService} from './StorageService';
-
-// Replace with your actual API URL
-const API_BASE_URL = 'https://api.reachme.example.com';
+import {config} from '../config';
 
 export class AuthService {
   private api: AxiosInstance;
 
   constructor() {
     this.api = axios.create({
-      baseURL: API_BASE_URL,
+      baseURL: config.api.baseUrl,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',

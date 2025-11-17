@@ -1,0 +1,4 @@
+# Admin Users - Email|Salt|EncryptedPassword
+# This file contains admin user credentials for development
+# Format: email|salt|encrypted_password
+t1gkl|d8c24ddeeaaab67361f8988ae9b60dae|1561f7cc8a5f9f7cb67ac36ecc9a5a61:a96f464ae7da9d756e7d37eafa11a1bc

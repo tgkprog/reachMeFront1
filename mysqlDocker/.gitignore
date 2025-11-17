@@ -1,0 +1,2 @@
+# Ignore local database data volume if created alongside compose
+/data/

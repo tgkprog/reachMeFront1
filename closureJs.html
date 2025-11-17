@@ -1,0 +1,102 @@
+<b>JavaScript Closure Example:</b> Demonstrates how closures capture variables from outer scope.<br>
+Four params: operand 1, operand 2, operation (+, -, *, /, \, %, ! or add, sub, mul, div, rem, mod, fact), key to save function.<br>
+We will define functions and use switch to decide which to return based on operation. (! factorial uses only op1)<br>
+<br>
+Operand 1 <input name=op1 size=3> Operand 2 <input name=op2 size=3> 
+Operation <input name=oper size=4> Key <input name=key size=5>
+<br>
+<button value="Save" onClick="save()">Save</button>
+<br><br>
+Process key <input name=key2 size=5>
+<br>
+<button value="Process" onClick="proc()">Process</button>
+
+ <div id='out'></div>
+
+ <script>
+    mp = {}
+
+function outer(s1){
+    function inner() {
+        return s1 + " world!";
+    }
+    return inner; 
+}    
+
+function outer2(op1, op2, op){
+    function add() {
+        return op1 + op2;
+    }
+    function sub() {
+        return op1 - op2;
+    }
+    function mul() {
+        return op1 * op2;
+    }
+    function div() {
+        return op1 / op2;
+    }
+    function rem() {
+        return Math.floor(op1 / op2);
+    }
+    function mod() {
+        return op1 % op2;
+    }
+    function fact() {
+        let result = 1;
+        for (let i = 2; i <= op1; i++) {
+            result *= i;
+        }
+        return result;
+    }
+    function unknown() {
+        return "Unknown operation: " + op + " on " + op1 + " and " + op2;
+    }
+    
+    switch(op) {
+        case "add":
+        case "+":
+            return add;
+        case "sub":
+        case "-":
+            return sub;
+        case "mul":
+        case "*":
+            return mul;
+        case "div":
+        case "/":
+            return div;
+        case "rem":
+        case "\\":
+            return rem;
+        case "mod":
+        case "%":
+            return mod;
+        case "fact":
+        case "!":
+            return fact;
+        default:
+            return unknown;
+    }
+} 
+
+function save() {
+    const op1 = parseFloat(document.all.op1.value);
+    const op2 = parseFloat(document.all.op2.value);
+    const oper = document.all.oper.value;
+    const k = document.all.key.value;
+    mp[k] = outer2(op1, op2, oper);
+    const o = document.getElementById("out");
+    o.innerHTML += "Saved " + op1 + " " + oper + " " + op2 + " to key " + k + "<br>";
+}
+
+function proc() {
+    const k = document.all.key2.value;
+    const o = document.getElementById("out");
+    if (k in mp && mp[k] !== null) {
+        o.innerHTML += "<br>Processed key " + k + ": " + mp[k]() + "<br>";
+    } else {
+        o.innerHTML += "<br>Key " + k + " not found<br>";
+    }
+}
+ </script>

@@ -1,0 +1,105 @@
+CREATE DATABASE IF NOT EXISTS rntPy1;
+USE rntPy1;
+
+CREATE TABLE Person (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  firstName VARCHAR(100),
+  lastName VARCHAR(100),
+  middleName VARCHAR(100),
+  email1 VARCHAR(150),
+  email2 VARCHAR(150),
+  phone1 VARCHAR(20),
+  phone1HasWhatsApp BOOLEAN DEFAULT FALSE,
+  phone2 VARCHAR(20),
+  phone2HasWhatsApp BOOLEAN DEFAULT FALSE,
+  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE User (
+  personId INT PRIMARY KEY,
+  mainEmail VARCHAR(150) UNIQUE NOT NULL,
+  googleEmail VARCHAR(150),
+  googleAuthEnabled BOOLEAN DEFAULT FALSE,
+  passwordHash VARCHAR(255),
+  isActive BOOLEAN DEFAULT TRUE,
+  role VARCHAR(50) DEFAULT 'landlord',
+  roles2 JSON,
+  lastLogin TIMESTAMP NULL,
+  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (personId) REFERENCES Person(id),
+  INDEX idx_mainEmail (mainEmail),
+  INDEX idx_googleEmail (googleEmail)
+);
+
+CREATE TABLE Property (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  userId INT,
+  name VARCHAR(100),
+  type VARCHAR(50),
+  address VARCHAR(255),
+  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (userId) REFERENCES User(personId)
+);
+
+CREATE TABLE Unit (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  propertyId INT,
+  label VARCHAR(100),
+  type VARCHAR(50),
+  address VARCHAR(255),
+  monthlyRent DECIMAL(10,2),
+  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (propertyId) REFERENCES Property(id)
+);
+
+CREATE TABLE Tenant (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  personId INT,
+  unitId INT,
+  rentStartDate DATE,
+  rentEndDate DATE,
+  isActive BOOLEAN DEFAULT TRUE,
+  FOREIGN KEY (personId) REFERENCES Person(id),
+  FOREIGN KEY (unitId) REFERENCES Unit(id)
+);
+
+CREATE TABLE RentPayment (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenantId INT,
+  unitId INT,
+  amount DECIMAL(10,2),
+  periodStart DATE,
+  periodEnd DATE,
+  paymentDate DATE,
+  paymentMethod VARCHAR(50),
+  status VARCHAR(50),
+  FOREIGN KEY (tenantId) REFERENCES Tenant(id),
+  FOREIGN KEY (unitId) REFERENCES Unit(id)
+);
+
+CREATE TABLE Expense (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  userId INT,
+  propertyId INT,
+  description VARCHAR(255),
+  amount DECIMAL(10,2),
+  expenseDate DATE,
+  category VARCHAR(100),
+  FOREIGN KEY (userId) REFERENCES User(personId),
+  FOREIGN KEY (propertyId) REFERENCES Property(id)
+);
+
+CREATE TABLE Subscription (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  userId INT,
+  planType ENUM('MONTHLY', 'TEN_DAYS'),
+  price DECIMAL(10,2),
+  startDate DATE,
+  endDate DATE,
+  status VARCHAR(50),
+  FOREIGN KEY (userId) REFERENCES User(personId)
+);

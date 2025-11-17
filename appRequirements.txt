@@ -8,6 +8,17 @@ Targets: **Android (full)** and **Web (notifications + WebSocket)**
 Flutter UI + logic; Android native (Kotlin) for system features (foreground service, overlay, alarms, DND, exact alarms, call actions). Web: UI + browser notifications only.
 
 ---
+Id of device on first start up. 
+import android.provider.Settings;
+import android.content.Context;
+
+public class DeviceUtils {
+
+    public static String getAndroidId(Context context) {
+        return Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
+    }
+
+    on server have a friednly name for the device like 'mobile1', 'tablet2' etc.
 
 ## 2. Screens & UX
 

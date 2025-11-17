@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {View, Text, Button, StyleSheet, Alert, Platform} from 'react-native';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import {AuthService} from '../services/AuthService';
+import {config} from '../config';
 import {User} from '../types';
 
 interface Props {
@@ -24,7 +25,7 @@ const LoginScreen: React.FC<Props> = ({navigation}) => {
     try {
       // Configure Google Sign In
       GoogleSignin.configure({
-        webClientId: 'YOUR_WEB_CLIENT_ID', // TODO: Replace
+        webClientId: config.oauth.google.webClientId,
         offlineAccess: true,
       });
 

@@ -12,43 +12,49 @@ Get the ReachMe React Native client running in 5 steps.
 
 ```bash
 cd /home/ubuntu/code/reachme/client
-npm install
+npm install --legacy-peer-deps
 ```
 
-## Step 2: Configure Google OAuth
+> **Note:** The `--legacy-peer-deps` flag is required to resolve peer dependency conflicts between React Native and React DOM.
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project (or select existing)
-3. Enable "Google Sign-In API"
-4. Create OAuth 2.0 credentials:
-   - Application type: Web application
-   - Add authorized redirect URIs
-5. Copy the **Web Client ID**
+## Step 2: Configure Environment Variables
 
-6. Update `src/screens/LoginScreen.tsx`:
-```typescript
-// Line ~25
-GoogleSignin.configure({
-  webClientId: 'YOUR_WEB_CLIENT_ID_HERE.apps.googleusercontent.com',
-  offlineAccess: true,
-});
+1. Copy the example environment file:
+```bash
+cp .env.example .env
 ```
 
-## Step 3: Configure Backend API
+2. Get your Google OAuth credentials:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project (or select existing)
+   - Enable "Google Sign-In API"
+   - Create OAuth 2.0 credentials:
+     - Application type: Web application
+     - Add authorized redirect URIs
+   - Copy the **Web Client ID**
+   #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
 
-Update API base URL in these files:
+3. Edit `.env` file and add your credentials:
+```bash
+# OAuth Configuration
+GOOGLE_WEB_CLIENT_ID=your-actual-client-id.apps.googleusercontent.com
 
-**`src/services/AuthService.ts`** (line ~5):
-```typescript
-const API_BASE_URL = 'https://your-backend-api.com';
+# Backend API Configuration
+API_BASE_URL=https://rentpay.com:8082
+
+# Optional: Adjust polling intervals (in seconds)
+DEFAULT_POLL_INTERVAL=60
+MIN_POLL_INTERVAL=10
+MAX_POLL_INTERVAL=180
 ```
 
-**`src/services/PollService.ts`** (line ~5):
-```typescript
-const API_BASE_URL = 'https://your-backend-api.com';
-```
+> **Important:** 
+> - Never commit your `.env` file! Only `.env.example` should be in git.
+> - After changing `.env`, restart Metro with cache clear: `npm start -- --reset-cache`
 
-## Step 4: Run the App
+The app automatically reads these environment variables through `src/config/index.ts`.
+
+## Step 3: Run the App
 
 ### Android
 
@@ -80,7 +86,7 @@ npm run web
 
 Then open browser to: `http://localhost:8080`
 
-## Step 5: Grant Permissions (Android Only)
+## Step 4: Grant Permissions (Android Only)
 
 On first launch:
 
@@ -225,3 +231,9 @@ client/
 **Setup Time:** ~10 minutes  
 **First Run:** May take 2-3 minutes to build  
 **Supported:** Android 8.0+ (API 26+), Modern browsers
+
+
+Local etc/hosts file add enties:
+127.0.1.1 reachme.com
+127.0.1.1 reachme2.com 
+127.0.1.1 a.reachme2.com 
