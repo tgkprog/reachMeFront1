@@ -18,7 +18,7 @@ Modern web client for ReachMe using Vue 3.5.24 and Vite.
 ### 1. Install Dependencies
 
 ```bash
-cd client2
+cd clientWeb
 npm install
 ```
 
@@ -79,7 +79,7 @@ npm run preview
 ## Project Structure
 
 ```
-client2/
+clientWeb/
 ├── src/
 │   ├── views/           # Page components
 │   │   ├── LoginView.vue
