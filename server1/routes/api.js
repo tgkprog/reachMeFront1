@@ -93,31 +93,80 @@ router.post("/user/check", async (req, res) => {
 router.get("/check", authenticateToken, async (req, res) => {
   try {
     const { deviceId } = req.query;
-
     if (!deviceId) {
       return res.status(400).json({ error: "Device ID is required" });
     }
 
-    // TODO: Fetch commands from database for this device
-    // Example: SELECT * FROM commands WHERE device_id = ? AND status = 'pending'
+    // Determine user id/email from JWT payload
+    const userId = req.user.id || req.user.userId || null;
+    const userEmail = req.user.email || null;
+    if (!userId && !userEmail) {
+      return res.status(400).json({ error: "User context missing" });
+    }
 
-    const commands = [
-      // Example command (remove in production)
-      // {
-      //   type: 'alert',
-      //   tone: 'preset',
-      //   title: 'Test Alert',
-      //   msg: 'This is a test notification from ReachMe server',
-      // }
-    ];
+    // Fetch recent unacknowledged reach_me_messages for this user (limit 10)
+    // These become 'alert' commands for the client
+    const { getDB } = require("../db/connection");
+    const db = getDB();
+
+    // Prefer user_id match; fallback to email join if needed
+    let rows = [];
+    if (userId) {
+      const [r] = await db.execute(
+        `SELECT id, message, created_at, sender_info
+         FROM reach_me_messages
+         WHERE user_id = ? AND (is_ack_app IS NULL OR is_ack_app = FALSE)
+         ORDER BY created_at DESC
+         LIMIT 10`,
+        [userId]
+      );
+      rows = r;
+    } else if (userEmail) {
+      const [r] = await db.execute(
+        `SELECT m.id, m.message, m.created_at, m.sender_info
+         FROM reach_me_messages m
+         JOIN users u ON m.user_id = u.id
+         WHERE u.email = ? AND (m.is_ack_app IS NULL OR m.is_ack_app = FALSE)
+         ORDER BY m.created_at DESC
+         LIMIT 10`,
+        [userEmail]
+      );
+      rows = r;
+    }
+
+    const commands = rows.map((row) => {
+      let sender = {};
+      try {
+        sender = row.sender_info ? JSON.parse(row.sender_info) : {};
+      } catch (e) {
+        sender = {};
+      }
+      const name = sender.name || "";
+      const relationship = sender.relationship || "";
+      const email = sender.email || "";
+      const phone = sender.phone || "";
+      const createDate =
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : row.created_at || new Date().toISOString();
+      return {
+        type: "alert",
+        id: String(row.id),
+        create_date: createDate,
+        tone: "preset", // Placeholder; extend when custom tones/files implemented
+        title: "ReachMe Alert", // Generic title; client can override if needed
+        msg: row.message || "(no message)",
+        name,
+        relationship,
+        email,
+        phone,
+      };
+    });
 
     // Server's minimum poll time (in seconds)
     const min_poll_time = 30;
 
-    res.json({
-      commands,
-      min_poll_time,
-    });
+    res.json({ commands, min_poll_time });
   } catch (error) {
     console.error("Command polling error:", error);
     res.status(500).json({ error: "Failed to fetch commands" });

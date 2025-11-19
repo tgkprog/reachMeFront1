@@ -27,6 +27,10 @@ export interface AlertCommand extends ServerCommand {
   fileId?: string;
   title: string;
   msg: string;
+  // Unique alarm identifier provided by server
+  id?: string;
+  // ISO timestamp or epoch milliseconds string when created
+  create_date?: string;
 }
 
 export interface ForwardCommand extends ServerCommand {

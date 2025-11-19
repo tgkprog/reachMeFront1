@@ -5,6 +5,7 @@ import {AuthService} from '@services/AuthService';
 import LoginScreen from '@screens/LoginScreen';
 import ControlsScreen from '@screens/ControlsScreen';
 import AboutScreen from '@screens/AboutScreen';
+import AlarmsScreen from '@screens/AlarmsScreen';
 
 const Stack = createStackNavigator();
 
@@ -32,6 +33,7 @@ const App = () => {
           <>
             <Stack.Screen name="Controls" component={ControlsScreen} />
             <Stack.Screen name="About" component={AboutScreen} />
+            <Stack.Screen name="Alarms" component={AlarmsScreen} />
           </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />

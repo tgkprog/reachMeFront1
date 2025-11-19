@@ -1,0 +1,19 @@
+# Private folder with separate git repo
+/private
+
+# Node modules
+node_modules/
+
+# Environment files
+*.env
+.env
+.local.env
+*.env.local
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

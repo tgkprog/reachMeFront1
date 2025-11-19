@@ -38,6 +38,163 @@ function decryptPassword(encryptedData, encryptionKey) {
 }
 
 /**
+ * Encrypt password using AES-256-CBC (matching admin encryption)
+ */
+function encryptPassword(password, encryptionKey) {
+  const ALGORITHM = "aes-256-cbc";
+  const key = crypto.createHash("sha256").update(encryptionKey).digest();
+  const iv = crypto.randomBytes(16);
+
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  let encrypted = cipher.update(password, "utf8", "hex");
+  encrypted += cipher.final("hex");
+
+  return `${iv.toString("hex")}:${encrypted}`;
+}
+
+/**
+ * POST /user/create
+ * Create a new user
+ */
+router.post("/create", async (req, res) => {
+  try {
+    const {
+      email,
+      password,
+      pwdLogin,
+      googleOauth,
+      googleEmail,
+      firstName,
+      lastName,
+      accountStatus,
+    } = req.body;
+
+    // Validate required fields
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: "Email is required",
+      });
+    }
+
+    if (!firstName || !lastName) {
+      return res.status(400).json({
+        success: false,
+        error: "First name and last name are required",
+      });
+    }
+
+    // Validate password login requirements
+    if (pwdLogin && !password) {
+      return res.status(400).json({
+        success: false,
+        error: "Password is required when pwdLogin is enabled",
+      });
+    }
+
+    // Validate Google OAuth requirements
+    if (googleOauth && !googleEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "Google email is required when googleOauth is enabled",
+      });
+    }
+
+    const db = getDB();
+    const encryptionKey = process.env.ADMIN_ENCRYPTION_KEY;
+
+    if (!encryptionKey) {
+      console.error("ADMIN_ENCRYPTION_KEY not set in environment");
+      return res.status(500).json({
+        success: false,
+        error: "Server configuration error",
+      });
+    }
+
+    // Check if user already exists
+    const [existing] = await db.execute(
+      "SELECT id FROM users WHERE email = ?",
+      [email]
+    );
+
+    if (existing.length > 0) {
+      return res.status(409).json({
+        success: false,
+        error: "User with this email already exists",
+      });
+    }
+
+    // Check if Google email is already in use
+    if (googleEmail) {
+      const [existingGoogle] = await db.execute(
+        "SELECT id FROM users WHERE USER_GOOGLE_EMAIL = ?",
+        [googleEmail]
+      );
+
+      if (existingGoogle.length > 0) {
+        return res.status(409).json({
+          success: false,
+          error: "This Google email is already associated with another user",
+        });
+      }
+    }
+
+    // Encrypt password if provided
+    let passwordHash = null;
+    if (password) {
+      passwordHash = encryptPassword(password, encryptionKey);
+    }
+
+    // Insert user into database
+    const [result] = await db.execute(
+      `INSERT INTO users (
+        email, 
+        password_hash, 
+        pwdLogin, 
+        googleOauth, 
+        USER_GOOGLE_EMAIL,
+        first_name,
+        last_name,
+        account_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        email,
+        passwordHash,
+        pwdLogin || false,
+        googleOauth || false,
+        googleEmail || null,
+        firstName,
+        lastName,
+        accountStatus || "active",
+      ]
+    );
+
+    const userId = result.insertId;
+
+    res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      user: {
+        id: userId,
+        email,
+        firstName,
+        lastName,
+        pwdLogin: pwdLogin || false,
+        googleOauth: googleOauth || false,
+        googleEmail: googleEmail || null,
+        accountStatus: accountStatus || "active",
+      },
+    });
+  } catch (error) {
+    console.error("User creation error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to create user",
+    });
+  }
+});
+
+/**
  * POST /user/login
  * User login with email and password
  */

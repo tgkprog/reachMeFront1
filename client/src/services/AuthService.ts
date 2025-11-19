@@ -1,7 +1,7 @@
 import axios, {AxiosInstance} from 'axios';
 import {User, UserCheckResponse} from '@types/index';
 import {StorageService} from './StorageService';
-import {config} from '../config';
+import {config, auth} from '../config';
 
 export class AuthService {
   private api: AxiosInstance;
@@ -31,6 +31,30 @@ export class AuthService {
       return response.data;
     } catch (error) {
       console.error('User check failed:', error);
+      throw error;
+    }
+  }
+
+  async passwordLogin(email: string, password: string): Promise<{user: User; token?: string}> {
+    if (!auth.passwordLoginEnabled) {
+      throw new Error('Password login disabled');
+    }
+    try {
+      const response = await this.api.post(auth.passwordLoginEndpoint, {email, password});
+      const data = response.data || {};
+      // Expected shape: { success: boolean, token: string, user: { email, firstName, lastName, photoUrl? } }
+      if (data.success === false) {
+        throw new Error(data.message || 'Login failed');
+      }
+      const user: User = {
+        email: (data.user && data.user.email) || email,
+        firstName: (data.user && data.user.firstName) || '',
+        lastName: (data.user && data.user.lastName) || '',
+        photoUrl: data.user && data.user.photoUrl ? data.user.photoUrl : undefined,
+      };
+      return {user, token: data.token};
+    } catch (error: any) {
+      console.error('Password login failed:', error);
       throw error;
     }
   }

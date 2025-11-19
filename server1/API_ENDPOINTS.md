@@ -4,6 +4,50 @@
 
 ### User Authentication
 
+#### Create User
+```http
+POST /user/create
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "userpassword",          // Optional (required if pwdLogin=true)
+  "pwdLogin": true,                    // Optional, default: false
+  "googleOauth": true,                 // Optional, default: false
+  "googleEmail": "user@gmail.com",     // Optional (required if googleOauth=true)
+  "firstName": "John",
+  "lastName": "Doe",
+  "accountStatus": "active"            // Optional, default: "active"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "message": "User created successfully",
+  "user": {
+    "id": 123,
+    "email": "user@example.com",
+    "firstName": "John",
+    "lastName": "Doe",
+    "pwdLogin": true,
+    "googleOauth": true,
+    "googleEmail": "user@gmail.com",
+    "accountStatus": "active"
+  }
+}
+```
+
+**Errors:**
+- `400`: Missing required fields (email, firstName, lastName)
+- `400`: Password required when pwdLogin is enabled
+- `400`: Google email required when googleOauth is enabled
+- `409`: User with this email already exists
+- `409`: Google email already associated with another user
+
+---
+
 #### Login with Email/Password
 ```http
 POST /user/login

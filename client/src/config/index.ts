@@ -25,6 +25,8 @@ import {
   SENTRY_DSN,
   SKIP_USER_CHECK,
   MOCK_SERVER,
+  PASSWORD_LOGIN_ENABLED,
+  PASSWORD_LOGIN_ENDPOINT,
 } from '@env';
 
 // Helper to get boolean from string
@@ -58,6 +60,12 @@ export const config = {
     facebook: {
       appId: FACEBOOK_APP_ID || '',
     },
+  },
+
+  // Password (Email/Password) Authentication
+  auth: {
+    passwordLoginEnabled: getBool(PASSWORD_LOGIN_ENABLED, true),
+    passwordLoginEndpoint: PASSWORD_LOGIN_ENDPOINT || '/api/user/passwordLogin',
   },
 
   // Polling Configuration
@@ -119,6 +127,6 @@ export const validateConfig = (): string[] => {
 };
 
 // Export individual configs for convenience
-export const {api, oauth, polling, features, android, web, security, analytics, dev} = config;
+export const {api, oauth, polling, features, android, web, security, analytics, dev, auth} = config;
 
 export default config;

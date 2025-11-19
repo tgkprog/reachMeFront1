@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {View, Text, Button, StyleSheet, Alert, Platform} from 'react-native';
+import {View, Text, Button, StyleSheet, Alert, TextInput} from 'react-native';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import {AuthService} from '../services/AuthService';
 import {config} from '../config';
@@ -11,6 +11,9 @@ interface Props {
 
 const LoginScreen: React.FC<Props> = ({navigation}) => {
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [pwMode, setPwMode] = useState(false);
   const authService = new AuthService();
 
   const handleGoogleLogin = async () => {
@@ -67,13 +70,68 @@ const LoginScreen: React.FC<Props> = ({navigation}) => {
     navigation.navigate('About');
   };
 
+  const handlePasswordLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Missing data', 'Email and password required');
+      return;
+    }
+    setLoading(true);
+    try {
+      // Optional user allowed check if not skipped
+      if (!config.dev.skipUserCheck) {
+        const allowedResp = await authService.checkUserAllowed(email);
+        if (!allowedResp.allowed) {
+          Alert.alert('Access Denied', allowedResp.message || 'Not allowed');
+          setLoading(false);
+          return;
+        }
+      }
+      const {user, token} = await authService.passwordLogin(email, password);
+      await authService.login(user, token);
+      navigation.replace('Controls');
+    } catch (e: any) {
+      Alert.alert('Login Failed', e.message || 'Error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleMode = () => setPwMode(m => !m);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>ReachMe</Text>
       <Text style={styles.subtitle}>Stay connected, always</Text>
 
-      <View style={styles.buttonContainer}>
-        <Button title="Sign in with Google" onPress={handleGoogleLogin} disabled={loading} />
+      {!pwMode && (
+        <View style={styles.buttonContainer}>
+          <Button title="Sign in with Google" onPress={handleGoogleLogin} disabled={loading} />
+        </View>
+      )}
+
+      {pwMode && (
+        <View style={styles.formContainer}>
+          <TextInput
+            placeholder="Email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+          />
+          <TextInput
+            placeholder="Password"
+            secureTextEntry
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+          />
+          <Button title="Login" onPress={handlePasswordLogin} disabled={loading} />
+        </View>
+      )}
+
+      <View style={styles.switchContainer}>
+        <Button title={pwMode ? 'Use Google Login' : 'Use Email/Password'} onPress={toggleMode} />
       </View>
 
       <Button title="About" onPress={showAbout} />
@@ -100,6 +158,22 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   buttonContainer: {
+    marginBottom: 20,
+  },
+  formContainer: {
+    width: '80%',
+    marginBottom: 20,
+    gap: 12,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    padding: 10,
+    backgroundColor: '#fff',
+    marginBottom: 12,
+  },
+  switchContainer: {
     marginBottom: 20,
   },
 });

@@ -5,7 +5,7 @@ A cross-platform (Android + Web) critical notification system built with React N
 ## 🎯 Features
 
 ### Core Functionality
-- **OAuth Authentication** - Google, GitHub, Facebook (Google implemented)
+- **Authentication** - Google OAuth + Email/Password (Google implemented, password added)
 - **DND Bypass** - Alarms play even in Do Not Disturb mode (Android only)
 - **Overlay Notifications** - Floating UI with 3 action buttons (Android)
 - **Foreground Service** - Survives app kills and reboots (Android)
@@ -43,14 +43,29 @@ npm install
 yarn install
 ```
 
-### 2. Configure API URL
+### 2. Configure API URL & Environments
 
-Edit `src/services/AuthService.ts` and `src/services/PollService.ts`:
-```typescript
-const API_BASE_URL = 'https://your-api-url.com'; // Replace with your API
+We use multiple environment files with `react-native-dotenv`:
+
+Files:
+```
+.env         (default / production)
+local.env    (local development)
+dev.env      (dev server)
 ```
 
-### 3. Configure Google Sign-In
+Switch environments by copying over `.env`:
+```bash
+npm run env:local   # uses https://reachme2.com:8052/
+npm run env:dev     # uses https://b.c.sel2in.com/n1/
+```
+
+Then run the platform build (example):
+```bash
+npm run env:local && npm run android
+```
+
+### 3. Configure Google Sign-In & Password Login
 
 Edit `src/screens/LoginScreen.tsx`:
 ```typescript
@@ -60,7 +75,15 @@ GoogleSignin.configure({
 });
 ```
 
-### 4. Run the App
+### 4. Password Login Endpoint
+
+Ensure backend exposes password login at relative path (default):
+```
+/api/user/passwordLogin  (POST { email, password })
+```
+Set/override via env variable `PASSWORD_LOGIN_ENDPOINT`.
+
+### 5. Run the App
 
 **Android:**
 ```bash

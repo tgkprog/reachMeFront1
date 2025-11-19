@@ -1,0 +1,26 @@
+{
+  "name": "reachme-web",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "dev:8087": "vite --port 8087",
+    "dev:8088": "vite --port 8088",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "vue": "3.5.24",
+    "vue-router": "^4.2.5",
+    "axios": "^1.6.2",
+    "pinia": "^2.1.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.0",
+    "vue-tsc": "^1.8.27"
+  }
+}

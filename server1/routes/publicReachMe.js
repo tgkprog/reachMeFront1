@@ -261,7 +261,8 @@ router.get("/list", authenticateToken, async (req, res) => {
  */
 router.post("/user/reach", async (req, res) => {
   try {
-    const { token, name, email, message } = req.body;
+    const { token, relationship, name, email, phone, message, actionType } =
+      req.body;
 
     if (!token) {
       return res
@@ -269,16 +270,19 @@ router.post("/user/reach", async (req, res) => {
         .json({ status: "error", error: "Token is required" });
     }
 
-    if (!message) {
+    // Validation: at least relationship, name, or email required
+    if (!relationship && !name && !email) {
+      return res.status(400).json({
+        status: "error",
+        error: "Please provide your name, email, or select a relationship",
+      });
+    }
+
+    // For send_message action, message is required
+    if (actionType === "send_message" && !message) {
       return res
         .status(400)
         .json({ status: "error", error: "Message is required" });
-    }
-
-    if (!name || !email) {
-      return res
-        .status(400)
-        .json({ status: "error", error: "Name and email are required" });
     }
 
     const db = getDB();
@@ -309,16 +313,32 @@ router.post("/user/reach", async (req, res) => {
     // Create alarm/message NOW (at POST time, not GET)
     const datetimeAlarm = new Date();
 
+    // Auto-deactivate after 1 hour
+    const autoDeactivateAt = new Date(datetimeAlarm.getTime() + 60 * 60 * 1000);
+
+    // Prepare sent_details JSON (for now just app, will expand later for WhatsApp, SMS, email)
+    const sentDetails = {
+      app: {
+        sent: false,
+        sentAt: null,
+        status: "pending",
+      },
+    };
+
     await db.execute(
       `INSERT INTO reach_me_messages 
-       (user_id, public_reachme_id, message, datetime_alarm, sender_info) 
-       VALUES (?, ?, ?, ?, ?)`,
+       (user_id, public_reachme_id, message, datetime_alarm, sender_info, 
+        reached_client, sent_details, auto_deactivate_at) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         urlData.user_id,
         urlData.id,
         message,
         datetimeAlarm,
-        JSON.stringify({ name, email }),
+        JSON.stringify({ relationship, name, email, phone, actionType }),
+        false, // reached_client
+        JSON.stringify(sentDetails),
+        autoDeactivateAt,
       ]
     );
 
@@ -464,70 +484,7 @@ router.get("/:urlCode/", async (req, res) => {
 
     // If mode=web, return HTML form with token
     if (mode === "web") {
-      res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>ReachMe - Contact Form</title>
-          <style>
-            body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
-            h1 { color: #333; }
-            form { margin-top: 20px; }
-            input, textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-            button { background: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-            button:hover { background: #0056b3; }
-            .success { color: green; margin-top: 20px; }
-            .error { color: red; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <h1>Send a Message</h1>
-          <form id="contactForm">
-            <input type="hidden" name="token" value="${urlCode}">
-            <input type="text" name="name" placeholder="Your name" required>
-            <input type="email" name="email" placeholder="Your email" required>
-            <textarea name="message" placeholder="Your message" rows="6" required></textarea>
-            <button type="submit">Send Message</button>
-          </form>
-          <div id="result"></div>
-          <script>
-            document.getElementById('contactForm').addEventListener('submit', async (e) => {
-              e.preventDefault();
-              const formData = new FormData(e.target);
-              const resultDiv = document.getElementById('result');
-              
-              try {
-                const response = await fetch('/user/reach', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    token: formData.get('token'),
-                    name: formData.get('name'),
-                    email: formData.get('email'),
-                    message: formData.get('message')
-                  })
-                });
-                
-                const result = await response.json();
-                
-                if (result.status === 'ok') {
-                  resultDiv.className = 'success';
-                  resultDiv.textContent = 'Message sent successfully!';
-                  e.target.reset();
-                  document.querySelector('input[name="token"]').value = '${urlCode}';
-                } else {
-                  resultDiv.className = 'error';
-                  resultDiv.textContent = result.error || 'Failed to send message';
-                }
-              } catch (error) {
-                resultDiv.className = 'error';
-                resultDiv.textContent = 'Error sending message: ' + error.message;
-              }
-            });
-          </script>
-        </body>
-        </html>
-      `);
+      return res.render("contact-form", { urlCode });
     } else {
       // Default JSON response for API access
       res.json({

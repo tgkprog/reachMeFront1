@@ -181,64 +181,39 @@ async function cleanupTestUser() {
 }
 
 /**
- * Hash password using the same encryption as admin passwords
- */
-function encryptPassword(password) {
-  const crypto = require("crypto");
-  const ADMIN_ENCRYPTION_KEY =
-    process.env.ADMIN_ENCRYPTION_KEY || "hFsd934mcW7jKp2qRt8vYz";
-  const ALGORITHM = "aes-256-cbc";
-
-  const key = crypto.createHash("sha256").update(ADMIN_ENCRYPTION_KEY).digest();
-  const iv = crypto.randomBytes(16);
-
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-  let encrypted = cipher.update(password, "utf8", "hex");
-  encrypted += cipher.final("hex");
-
-  return `${iv.toString("hex")}:${encrypted}`;
-}
-
-/**
- * Create test user
+ * Create test user via API
  */
 async function createTestUser() {
-  console.log("\n👤 Creating test user...");
+  console.log("\n👤 Creating test user via API...");
 
   try {
-    // Encrypt password using same method as admin
-    const passwordHash = encryptPassword(TEST_USER_PWD);
+    const response = await makeRequest("POST", "/user/create", {
+      email: TEST_USER_EMAIL,
+      password: TEST_USER_PWD,
+      pwdLogin: TEST_USER_PWD_LOGIN,
+      googleOauth: TEST_USER_GOOGLE_OAUTH,
+      googleEmail: TEST_USER_GOOGLE_EMAIL,
+      firstName: "Test",
+      lastName: "User",
+      accountStatus: "active",
+    });
 
-    const [result] = await dbConnection.execute(
-      `INSERT INTO users (
-        email, 
-        password_hash, 
-        pwdLogin, 
-        googleOauth, 
-        USER_GOOGLE_EMAIL,
-        first_name,
-        last_name,
-        account_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        TEST_USER_EMAIL,
-        passwordHash,
-        TEST_USER_PWD_LOGIN,
-        TEST_USER_GOOGLE_OAUTH,
-        TEST_USER_GOOGLE_EMAIL,
-        "Test",
-        "User",
-        "active",
-      ]
-    );
-
-    testData.userId = result.insertId;
-    console.log(`✅ Created test user: ${TEST_USER_EMAIL}`);
-    console.log(`   User ID: ${testData.userId}`);
-    console.log(`   Password Login: ${TEST_USER_PWD_LOGIN ? "Yes" : "No"}`);
-    console.log(`   Google OAuth: ${TEST_USER_GOOGLE_OAUTH ? "Yes" : "No"}`);
-    if (TEST_USER_GOOGLE_OAUTH) {
-      console.log(`   Google Email: ${TEST_USER_GOOGLE_EMAIL}`);
+    if (response.status === 201 && response.data.success) {
+      testData.userId = response.data.user.id;
+      console.log(`✅ Created test user: ${TEST_USER_EMAIL}`);
+      console.log(`   User ID: ${testData.userId}`);
+      console.log(
+        `   Password Login: ${response.data.user.pwdLogin ? "Yes" : "No"}`
+      );
+      console.log(
+        `   Google OAuth: ${response.data.user.googleOauth ? "Yes" : "No"}`
+      );
+      if (response.data.user.googleOauth) {
+        console.log(`   Google Email: ${response.data.user.googleEmail}`);
+      }
+    } else {
+      console.error("❌ User creation failed:", response.data);
+      throw new Error("User creation failed");
     }
   } catch (error) {
     console.error("❌ Error creating test user:", error.message);

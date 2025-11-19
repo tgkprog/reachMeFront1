@@ -7,6 +7,8 @@ const LAST_LOGIN_ATTEMPT_KEY = 'last_login_attempt';
 const POLL_SETTINGS_KEY = 'poll_settings';
 const SLEEP_UNTIL_KEY = 'sleep_until';
 const MUTE_UNTIL_KEY = 'mute_until';
+const DEVICE_ID_KEY = 'device_id';
+const ALARM_HISTORY_KEY = 'alarm_history';
 
 export class StorageService {
   static async saveUser(user: User): Promise<void> {
@@ -36,10 +38,7 @@ export class StorageService {
   }
 
   static async savePollSettings(minutes: number, seconds: number): Promise<void> {
-    await EncryptedStorage.setItem(
-      POLL_SETTINGS_KEY,
-      JSON.stringify({minutes, seconds}),
-    );
+    await EncryptedStorage.setItem(POLL_SETTINGS_KEY, JSON.stringify({minutes, seconds}));
   }
 
   static async getPollSettings(): Promise<{minutes: number; seconds: number} | null> {
@@ -81,5 +80,54 @@ export class StorageService {
 
   static async clearAll(): Promise<void> {
     await EncryptedStorage.clear();
+  }
+
+  static async getDeviceId(): Promise<string> {
+    let existing = await EncryptedStorage.getItem(DEVICE_ID_KEY);
+    if (existing) return existing;
+    const newId = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    await EncryptedStorage.setItem(DEVICE_ID_KEY, newId);
+    return newId;
+  }
+
+  // Alarm history management (prevent duplicate alerts)
+  static async getAlarmHistory(): Promise<{id: string; ts: number; title?: string; msg?: string}[]> {
+    const data = await EncryptedStorage.getItem(ALARM_HISTORY_KEY);
+    if (!data) return [];
+    try {
+      return JSON.parse(data);
+    } catch {
+      return [];
+    }
+  }
+
+  static async addAlarmToHistory(id: string, createdTs: number, title?: string, msg?: string): Promise<void> {
+    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+    let history = await StorageService.getAlarmHistory();
+    const now = Date.now();
+    // Remove entries older than 2 days
+    history = history.filter(h => now - h.ts <= twoDaysMs);
+    // If id already present, do nothing
+    if (history.some(h => h.id === id)) {
+      return;
+    }
+    // Append new
+    history.push({id, ts: createdTs, title, msg});
+    // Cap at 100 (keep newest)
+    if (history.length > 100) {
+      history = history.sort((a, b) => b.ts - a.ts).slice(0, 100);
+    }
+    await EncryptedStorage.setItem(ALARM_HISTORY_KEY, JSON.stringify(history));
+  }
+
+  static async isAlarmProcessed(id: string, createdTs: number): Promise<boolean> {
+    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+    const history = await StorageService.getAlarmHistory();
+    const now = Date.now();
+    const found = history.find(h => h.id === id);
+    if (!found) return false;
+    // If found but too old, treat as not processed (will prune soon)
+    if (now - found.ts > twoDaysMs) return false;
+    return true;
   }
 }

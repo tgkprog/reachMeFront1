@@ -1,4 +1,5 @@
 module.exports = {
+  // Keep metro preset for native apps; for web we rely on webpack aliases.
   presets: ['module:metro-react-native-babel-preset'],
   plugins: [
     [
@@ -10,21 +11,6 @@ module.exports = {
         allowUndefined: true,
       },
     ],
-    [
-      'module-resolver',
-      {
-        root: ['./src'],
-        extensions: ['.ios.js', '.android.js', '.js', '.ts', '.tsx', '.json'],
-        alias: {
-          '@': './src',
-          '@components': './src/components',
-          '@screens': './src/screens',
-          '@services': './src/services',
-          '@utils': './src/utils',
-          '@native': './src/native',
-          '@types': './src/types',
-        },
-      },
-    ],
+    // Removed module-resolver to simplify web build; path aliases handled by webpack.
   ],
 };

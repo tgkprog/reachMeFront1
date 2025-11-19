@@ -1,10 +1,11 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useRef} from 'react';
 import {View, Text, StyleSheet, Button, Alert, ScrollView, Platform} from 'react-native';
 import {Picker} from '@react-native-picker/picker';
 import {StorageService} from '../services/StorageService';
 import {PollService} from '../services/PollService';
 import {AuthService} from '../services/AuthService';
 import {NativeBridge} from '../native/NativeBridge';
+import {config} from '../config';
 
 interface Props {
   navigation: any;
@@ -21,18 +22,38 @@ const ControlsScreen: React.FC<Props> = ({navigation}) => {
   const [pollSeconds, setPollSeconds] = useState(30);
 
   const authService = new AuthService();
-  let pollService: PollService;
+  const pollServiceRef = useRef<PollService | null>(null);
 
   useEffect(() => {
-    loadSettings();
+    loadSettingsAndStartPolling();
     startForegroundService();
+    return () => {
+      pollServiceRef.current?.stopPolling();
+    };
   }, []);
 
-  const loadSettings = async () => {
+  const loadSettingsAndStartPolling = async () => {
     const settings = await StorageService.getPollSettings();
     if (settings) {
       setPollMinutes(settings.minutes);
       setPollSeconds(settings.seconds);
+    }
+    const deviceId = await StorageService.getDeviceId();
+    const ps = new PollService(deviceId);
+    pollServiceRef.current = ps;
+    const intervalSeconds = settings
+      ? settings.minutes * 60 + settings.seconds
+      : pollSeconds + pollMinutes * 60;
+    await ps.startPolling(intervalSeconds * 1000);
+    // Web notification permission request
+    if (
+      config.features.webNotifications &&
+      typeof window !== 'undefined' &&
+      'Notification' in window
+    ) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
     }
   };
 
@@ -43,16 +64,14 @@ const ControlsScreen: React.FC<Props> = ({navigation}) => {
   };
 
   const handleSleep = async () => {
-    const durationMs =
-      (sleepDays * 24 * 60 * 60 + sleepHours * 60 * 60 + sleepMinutes * 60) * 1000;
+    const durationMs = (sleepDays * 24 * 60 * 60 + sleepHours * 60 * 60 + sleepMinutes * 60) * 1000;
     const sleepUntil = Date.now() + durationMs;
     await StorageService.setSleepUntil(sleepUntil);
     Alert.alert('Success', `Sleeping for ${sleepDays}d ${sleepHours}h ${sleepMinutes}m`);
   };
 
   const handleMute = async () => {
-    const durationMs =
-      (muteDays * 24 * 60 * 60 + muteHours * 60 * 60 + muteMinutes * 60) * 1000;
+    const durationMs = (muteDays * 24 * 60 * 60 + muteHours * 60 * 60 + muteMinutes * 60) * 1000;
     const muteUntil = Date.now() + durationMs;
     await StorageService.setMuteUntil(muteUntil);
     Alert.alert('Success', `Muted for ${muteDays}d ${muteHours}h ${muteMinutes}m`);
@@ -61,6 +80,12 @@ const ControlsScreen: React.FC<Props> = ({navigation}) => {
   const handlePollUpdate = async () => {
     await StorageService.savePollSettings(pollMinutes, pollSeconds);
     Alert.alert('Success', `Poll interval updated to ${pollMinutes}m ${pollSeconds}s`);
+    const ps = pollServiceRef.current;
+    if (ps) {
+      ps.stopPolling();
+      const intervalSeconds = pollMinutes * 60 + pollSeconds;
+      await ps.startPolling(intervalSeconds * 1000);
+    }
   };
 
   const checkPermissions = async () => {
@@ -111,18 +136,12 @@ const ControlsScreen: React.FC<Props> = ({navigation}) => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Sleep (no polling)</Text>
         <View style={styles.row}>
-          <Picker
-            selectedValue={sleepDays}
-            onValueChange={setSleepDays}
-            style={styles.picker}>
+          <Picker selectedValue={sleepDays} onValueChange={setSleepDays} style={styles.picker}>
             {[...Array(8)].map((_, i) => (
               <Picker.Item key={i} label={`${i}d`} value={i} />
             ))}
           </Picker>
-          <Picker
-            selectedValue={sleepHours}
-            onValueChange={setSleepHours}
-            style={styles.picker}>
+          <Picker selectedValue={sleepHours} onValueChange={setSleepHours} style={styles.picker}>
             {[...Array(24)].map((_, i) => (
               <Picker.Item key={i} label={`${i}h`} value={i} />
             ))}
@@ -148,18 +167,12 @@ const ControlsScreen: React.FC<Props> = ({navigation}) => {
               <Picker.Item key={i} label={`${i}d`} value={i} />
             ))}
           </Picker>
-          <Picker
-            selectedValue={muteHours}
-            onValueChange={setMuteHours}
-            style={styles.picker}>
+          <Picker selectedValue={muteHours} onValueChange={setMuteHours} style={styles.picker}>
             {[...Array(24)].map((_, i) => (
               <Picker.Item key={i} label={`${i}h`} value={i} />
             ))}
           </Picker>
-          <Picker
-            selectedValue={muteMinutes}
-            onValueChange={setMuteMinutes}
-            style={styles.picker}>
+          <Picker selectedValue={muteMinutes} onValueChange={setMuteMinutes} style={styles.picker}>
             {[...Array(60)].map((_, i) => (
               <Picker.Item key={i} label={`${i}m`} value={i} />
             ))}
@@ -172,18 +185,12 @@ const ControlsScreen: React.FC<Props> = ({navigation}) => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Poll Interval</Text>
         <View style={styles.row}>
-          <Picker
-            selectedValue={pollMinutes}
-            onValueChange={setPollMinutes}
-            style={styles.picker}>
+          <Picker selectedValue={pollMinutes} onValueChange={setPollMinutes} style={styles.picker}>
             <Picker.Item label="0m" value={0} />
             <Picker.Item label="1m" value={1} />
             <Picker.Item label="2m" value={2} />
           </Picker>
-          <Picker
-            selectedValue={pollSeconds}
-            onValueChange={setPollSeconds}
-            style={styles.picker}>
+          <Picker selectedValue={pollSeconds} onValueChange={setPollSeconds} style={styles.picker}>
             <Picker.Item label="10s" value={10} />
             <Picker.Item label="20s" value={20} />
             <Picker.Item label="30s" value={30} />
@@ -197,6 +204,8 @@ const ControlsScreen: React.FC<Props> = ({navigation}) => {
       {/* Menu */}
       <View style={styles.section}>
         <Button title="About" onPress={() => navigation.navigate('About')} />
+        <View style={{marginVertical: 5}} />
+        <Button title="Alarms History" onPress={() => navigation.navigate('Alarms')} />
         <View style={{marginVertical: 5}} />
         <Button title="Check All Permissions" onPress={checkPermissions} />
         <View style={{marginVertical: 5}} />

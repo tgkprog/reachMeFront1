@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReachMe - Contact Form</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      width: 100%;
+      padding: 40px;
+      animation: slideIn 0.4s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+      font-weight: 600;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      color: #555;
+      font-weight: 500;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e1e4e8;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: all 0.3s ease;
+      font-family: inherit;
+    }
+
+    select {
+      cursor: pointer;
+      background-color: white;
+    }
+
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="tel"]:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 120px;
+    }
+
+    button {
+      width: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      margin-top: 10px;
+    }
+
+    #submitUrgent {
+      background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+    }
+
+    #submitUrgent:hover {
+      box-shadow: 0 10px 20px rgba(229, 62, 62, 0.3);
+    }
+
+    #submitLater {
+      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    }
+
+    #submitLater:hover {
+      box-shadow: 0 10px 20px rgba(72, 187, 120, 0.3);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .result {
+      margin-top: 20px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      display: none;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .result.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      display: block;
+    }
+
+    .result.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+
+    .required {
+      color: #e53e3e;
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 30px 20px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📬 Send a Message</h1>
+    <p class="subtitle">Fill out the form below to get in touch</p>
+    
+    <form id="contactForm">
+      <input type="hidden" name="token" value="<%= urlCode %>">
+      
+      <div class="form-group">
+        <label for="relationship">Relationship</label>
+        <select id="relationship" name="relationship">
+          <option value="">Select relationship</option>
+          <option value="mom">Mom</option>
+          <option value="dad">Dad</option>
+          <option value="son">Son</option>
+          <option value="daughter">Daughter</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="name">Name</label>
+        <input type="text" id="name" name="name" placeholder="Enter your name">
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" placeholder="your.email@example.com">
+      </div>
+
+      <div class="form-group">
+        <label for="phone">Phone</label>
+        <input type="tel" id="phone" name="phone" placeholder="Your phone number">
+      </div>
+
+      <div class="form-group">
+        <label for="message">Message</label>
+        <textarea id="message" name="message" placeholder="Write your message here..."></textarea>
+      </div>
+
+      <button type="submit" name="actionType" value="call_urgently" id="submitUrgent">Call me urgently</button>
+      <button type="submit" name="actionType" value="call_later" id="submitLater">Call when you can</button>
+      <button type="submit" name="actionType" value="send_message" id="submitMessage">Send Message</button>
+    </form>
+
+    <div id="result" class="result"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('contactForm');
+    const resultDiv = document.getElementById('result');
+    const buttons = [
+      document.getElementById('submitUrgent'),
+      document.getElementById('submitLater'),
+      document.getElementById('submitMessage')
+    ];
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      // Get which button was clicked
+      const clickedButton = e.submitter;
+      const actionType = clickedButton.value;
+      const originalText = clickedButton.textContent;
+      
+      const formData = new FormData(e.target);
+      const relationship = formData.get('relationship');
+      const name = formData.get('name').trim();
+      const email = formData.get('email').trim();
+      const phone = formData.get('phone').trim();
+      let message = formData.get('message').trim();
+      
+      // Validation based on button clicked
+      if (actionType === 'call_urgently' || actionType === 'call_later') {
+        // For call buttons: at least name, relationship, or email required
+        if (!relationship && !name && !email) {
+          resultDiv.className = 'result error';
+          resultDiv.textContent = '❌ Please provide your name, email, or select a relationship';
+          resultDiv.style.display = 'block';
+          return;
+        }
+        
+        // Append predefined message
+        const actionMessage = actionType === 'call_urgently' 
+          ? 'Please call me urgently!' 
+          : 'Please call me when you can.';
+        message = message ? `${message}\n\n${actionMessage}` : actionMessage;
+        
+      } else if (actionType === 'send_message') {
+        // For send message: at least name, relationship, or email, and some message
+        if (!relationship && !name && !email) {
+          resultDiv.className = 'result error';
+          resultDiv.textContent = '❌ Please provide your name, email, or select a relationship';
+          resultDiv.style.display = 'block';
+          return;
+        }
+        if (!message) {
+          resultDiv.className = 'result error';
+          resultDiv.textContent = '❌ Please enter a message';
+          resultDiv.style.display = 'block';
+          return;
+        }
+      }
+      
+      // Disable all buttons
+      buttons.forEach(btn => btn.disabled = true);
+      clickedButton.textContent = 'Sending...';
+      
+      try {
+        const response = await fetch('/user/reach', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: formData.get('token'),
+            relationship: relationship || null,
+            name: name || null,
+            email: email || null,
+            phone: phone || null,
+            message: message,
+            actionType: actionType
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'ok') {
+          resultDiv.className = 'result success';
+          resultDiv.textContent = '✅ ' + (result.message || 'Message sent successfully!');
+          
+          // Reset form but keep token
+          const token = formData.get('token');
+          form.reset();
+          document.querySelector('input[name="token"]').value = token;
+          
+          // Clear success message after 5 seconds
+          setTimeout(() => {
+            resultDiv.style.display = 'none';
+          }, 5000);
+        } else {
+          resultDiv.className = 'result error';
+          resultDiv.textContent = '❌ ' + (result.error || 'Failed to send message');
+        }
+      } catch (error) {
+        resultDiv.className = 'result error';
+        resultDiv.textContent = '❌ Error sending message: ' + error.message;
+      } finally {
+        // Re-enable all buttons
+        buttons.forEach(btn => btn.disabled = false);
+        clickedButton.textContent = originalText;
+      }
+    });
+  </script>
+</body>
+</html>

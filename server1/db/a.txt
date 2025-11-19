@@ -1,0 +1,8 @@
+ mysql -h 127.0.0.1 -u g8 -phk49-Sk94K23m reachm1
+
+
+ cd ~/code/reachme/server1
+ mysql -h 127.0.0.1 -u g8 -phk49-Sk94K23m reachm1 < db/ddl.sql
+ 
+ reachm1 <<ddl.sql mysql -h 127.0.0.1 -u g8 -phk49-Sk94K23m reachm1 <<data.sql on two seperate lines to get the data ready; put data inside as it is not including admin user so we have a fast local set up
+

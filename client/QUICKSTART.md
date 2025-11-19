@@ -1,5 +1,13 @@
 # ReachMe Client - Quick Start Guide
 
+## Local Web (Port 8087)
+```bash
+cd /home/ubuntu/code/reachme/client
+npm run env:local              # copies local.env to .env (sets API + SKIP_PREFLIGHT_CHECK)
+npm install --legacy-peer-deps # if not already done
+npm run web:8087               # start web app on http://localhost:8087
+```
+
 Get the ReachMe React Native client running in 5 steps.
 
 ## Prerequisites
@@ -81,10 +89,13 @@ npx react-native run-android
 ### Web
 
 ```bash
-npm run web
+npm run env:local
+npm run web:8087
 ```
 
-Then open browser to: `http://localhost:8080`
+Then open browser to: `http://localhost:8087`
+
+If a preflight dependency warning appears, ensure `SKIP_PREFLIGHT_CHECK=true` is in `local.env` (already included) and re-run `npm run env:local` before starting.
 
 ## Step 4: Grant Permissions (Android Only)
 

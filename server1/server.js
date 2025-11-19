@@ -35,6 +35,12 @@ const publicReachMeCache = require("./utils/cache");
 const app = express();
 
 // ===================================
+// View Engine Configuration
+// ===================================
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'src/main/templates'));
+
+// ===================================
 // Environment Configuration
 // ===================================
 const isDev = process.env.NODE_ENV === "development";
@@ -130,6 +136,11 @@ app.use(
 // Favicon
 app.get("/favicon.ico", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "images", "favicon.ico"));
+});
+
+// About page
+app.get("/about.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "about.html"));
 });
 
 // Health check

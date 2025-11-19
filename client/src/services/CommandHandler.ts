@@ -64,6 +64,21 @@ export class CommandHandler {
       return;
     }
 
+    // Duplicate suppression (web + android unified)
+    const alarmId = command.id;
+    const createdTs = command.create_date
+      ? isNaN(Number(command.create_date))
+        ? Date.parse(command.create_date)
+        : Number(command.create_date)
+      : Date.now();
+    if (alarmId) {
+      const already = await StorageService.isAlarmProcessed(alarmId, createdTs);
+      if (already) {
+        console.log(`Skipping duplicate alarm id=${alarmId}`);
+        return;
+      }
+    }
+
     try {
       // Play alarm
       await NativeBridge.playAlarm({
@@ -87,6 +102,11 @@ export class CommandHandler {
             requireInteraction: true,
           });
         }
+      }
+
+      // Record processed alarm
+      if (alarmId) {
+        await StorageService.addAlarmToHistory(alarmId, createdTs, command.title, command.msg);
       }
     } catch (error) {
       console.error('Alert failed:', error);
