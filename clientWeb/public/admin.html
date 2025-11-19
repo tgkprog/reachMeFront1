@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin</title>
+    <script src="https://unpkg.com/vue@3"></script>
+    <style>
+        body { font-family: sans-serif; margin: 2rem; background: #1a1a1a; color: #e0e0e0; }
+        nav { display: flex; gap: 1rem; margin-top: 1rem; margin-bottom: 1rem; }
+        a, .logout { color: #4a90e2; text-decoration: none; cursor: pointer; }
+        a:hover, .logout:hover { text-decoration: underline; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; background: #2a2a2a; }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #444; }
+        th { background: #333; font-weight: bold; }
+        tr:hover { background: #333; }
+        
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.25rem; font-weight: 500; }
+        input[type="text"], input[type="email"], input[type="password"], select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #2a2a2a;
+            color: #e0e0e0;
+            box-sizing: border-box;
+        }
+        
+        input[type="checkbox"] { margin-right: 0.5rem; }
+        
+        .btn { 
+            padding: 0.5rem 1rem; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin-right: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .btn-primary { background: #4a90e2; color: white; }
+        .btn-primary:hover { background: #357abd; }
+        .btn-secondary { background: #666; color: white; }
+        .btn-secondary:hover { background: #555; }
+        .btn-danger { background: #ff4444; color: white; }
+        .btn-danger:hover { background: #cc0000; }
+        .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.85rem; }
+        
+        .alert { padding: 1rem; margin: 1rem 0; border-radius: 4px; }
+        .alert-success { background: #51cf66; color: #000; }
+        .alert-error { background: #ff4444; color: #fff; }
+        .alert-info { background: #4a90e2; color: #fff; }
+        
+        .checkbox-group { display: flex; align-items: center; }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .status-active { background: #51cf66; color: #000; }
+        .status-suspended { background: #ff9800; color: #000; }
+        .status-deleted { background: #ff4444; color: #fff; }
+        
+        .filters { 
+            background: #2a2a2a; 
+            padding: 1rem; 
+            border-radius: 4px; 
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .filters label { margin: 0; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <div v-if="loading">
+                <p>Loading...</p>
+            </div>
+            <div v-else-if="isAdmin">
+                <h1>Admin Panel</h1>
+                <nav>
+                    <a href="#" @click.prevent="currentView = 'home'">Home</a>
+                    <a href="#" @click.prevent="showUserList">List Users</a>
+                    <a href="#" @click.prevent="showAddUser">Add User</a>
+                    <span class="logout" @click="logout">Logout</span>
+                </nav>
+                <hr>
+                
+                <!-- Home View -->
+                <div v-if="currentView === 'home'">
+                    <p>Welcome to the admin area. Use the navigation above to manage users.</p>
+                </div>
+                
+                <!-- List Users View -->
+                <div v-if="currentView === 'list'">
+                    <h2>User List</h2>
+                    
+                    <div class="filters">
+                        <label>
+                            Filter by status:
+                            <select v-model="statusFilter" @change="loadUsers" style="width: auto; margin-left: 0.5rem;">
+                                <option value="">All</option>
+                                <option value="active">Active</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="deleted">Deleted</option>
+                            </select>
+                        </label>
+                    </div>
+                    
+                    <div v-if="alert.message" :class="'alert alert-' + alert.type">
+                        {{ alert.message }}
+                    </div>
+                    
+                    <table v-if="users.length > 0">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Email</th>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Password Login</th>
+                                <th>Google OAuth</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="user in users" :key="user.id">
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>{{ user.firstName }} {{ user.lastName }}</td>
+                                <td>
+                                    <span :class="'status-badge status-' + user.accountStatus">
+                                        {{ user.accountStatus }}
+                                    </span>
+                                </td>
+                                <td>{{ user.pwdLogin ? '✓' : '—' }}</td>
+                                <td>{{ user.googleOauth ? '✓' : '—' }}</td>
+                                <td>
+                                    <button class="btn btn-primary btn-sm" @click="editUser(user)">Edit</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p v-else>No users found.</p>
+                </div>
+                
+                <!-- Add User View -->
+                <div v-if="currentView === 'add'">
+                    <h2>Add New User</h2>
+                    
+                    <div v-if="alert.message" :class="'alert alert-' + alert.type">
+                        {{ alert.message }}
+                    </div>
+                    
+                    <form @submit.prevent="createUser">
+                        <div class="form-group">
+                            <label>Email (Primary / User ID) *</label>
+                            <input type="email" v-model="form.email" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>First Name *</label>
+                            <input type="text" v-model="form.firstName" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Last Name *</label>
+                            <input type="text" v-model="form.lastName" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Account Status</label>
+                            <select v-model="form.accountStatus">
+                                <option value="active">Active</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="deleted">Deleted</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" v-model="form.pwdLogin" id="pwdLogin">
+                            <label for="pwdLogin">Enable Password Login</label>
+                        </div>
+                        
+                        <div class="form-group" v-if="form.pwdLogin">
+                            <label>Password *</label>
+                            <input type="password" v-model="form.password" :required="form.pwdLogin">
+                        </div>
+                        
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" v-model="form.googleOauth" id="googleOauth">
+                            <label for="googleOauth">Enable Google OAuth</label>
+                        </div>
+                        
+                        <div class="form-group" v-if="form.googleOauth">
+                            <label>Google Email *</label>
+                            <input type="email" v-model="form.googleEmail" :required="form.googleOauth">
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">Create User</button>
+                            <button type="button" class="btn btn-secondary" @click="showUserList">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Edit User View -->
+                <div v-if="currentView === 'edit'">
+                    <h2>Edit User</h2>
+                    
+                    <div v-if="alert.message" :class="'alert alert-' + alert.type">
+                        {{ alert.message }}
+                    </div>
+                    
+                    <form @submit.prevent="updateUser">
+                        <div class="form-group">
+                            <label>Email (Primary / User ID)</label>
+                            <input type="email" v-model="form.email" disabled>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>First Name</label>
+                            <input type="text" v-model="form.firstName" disabled>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Last Name</label>
+                            <input type="text" v-model="form.lastName" disabled>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Account Status</label>
+                            <select v-model="form.accountStatus">
+                                <option value="active">Active</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="deleted">Deleted</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" v-model="form.pwdLogin" id="pwdLoginEdit">
+                            <label for="pwdLoginEdit">Enable Password Login</label>
+                        </div>
+                        
+                        <div class="form-group checkbox-group" v-if="form.pwdLogin">
+                            <input type="checkbox" v-model="form.updatePassword" id="updatePassword">
+                            <label for="updatePassword">Update Password</label>
+                        </div>
+                        
+                        <div class="form-group" v-if="form.pwdLogin && form.updatePassword">
+                            <label>New Password *</label>
+                            <input type="password" v-model="form.password" :required="form.updatePassword">
+                        </div>
+                        
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" v-model="form.googleOauth" id="googleOauthEdit">
+                            <label for="googleOauthEdit">Enable Google OAuth</label>
+                        </div>
+                        
+                        <div class="form-group" v-if="form.googleOauth">
+                            <label>Google Email</label>
+                            <input type="email" v-model="form.googleEmail">
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">Update User</button>
+                            <button type="button" class="btn btn-secondary" @click="showUserList">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div v-else>
+                <p>Hi</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/config.js"></script>
+    <script>
+        const { createApp } = Vue;
+        // Use API base URL from generated config
+        const API_BASE = window.APP_CONFIG?.API_BASE_URL || 'https://reachme2.com:8052';
+
+        createApp({
+            data() {
+                return {
+                    loading: true,
+                    isAdmin: false,
+                    currentView: 'home',
+                    users: [],
+                    statusFilter: '',
+                    alert: { type: '', message: '' },
+                    form: {
+                        id: null,
+                        email: '',
+                        password: '',
+                        firstName: '',
+                        lastName: '',
+                        accountStatus: 'active',
+                        pwdLogin: false,
+                        googleOauth: false,
+                        googleEmail: '',
+                        updatePassword: false
+                    }
+                }
+            },
+            methods: {
+                getToken() {
+                    return localStorage.getItem('adminToken');
+                },
+                
+                showAlert(type, message) {
+                    this.alert = { type, message };
+                    setTimeout(() => {
+                        this.alert = { type: '', message: '' };
+                    }, 5000);
+                },
+                
+                resetForm() {
+                    this.form = {
+                        id: null,
+                        email: '',
+                        password: '',
+                        firstName: '',
+                        lastName: '',
+                        accountStatus: 'active',
+                        pwdLogin: false,
+                        googleOauth: false,
+                        googleEmail: '',
+                        updatePassword: false
+                    };
+                },
+                
+                async loadUsers() {
+                    try {
+                        const params = new URLSearchParams();
+                        if (this.statusFilter) {
+                            params.append('account_status', this.statusFilter);
+                        }
+                        
+                        const response = await fetch(`${API_BASE}/admin/users?${params}`, {
+                            headers: {
+                                'Authorization': `Bearer ${this.getToken()}`
+                            }
+                        });
+                        
+                        const data = await response.json();
+                        if (data.success) {
+                            this.users = data.users;
+                        } else {
+                            this.showAlert('error', data.message || 'Failed to load users');
+                        }
+                    } catch (error) {
+                        console.error('Load users error:', error);
+                        this.showAlert('error', 'Failed to load users');
+                    }
+                },
+                
+                showUserList() {
+                    this.currentView = 'list';
+                    this.resetForm();
+                    this.loadUsers();
+                },
+                
+                showAddUser() {
+                    this.currentView = 'add';
+                    this.resetForm();
+                },
+                
+                editUser(user) {
+                    this.form = {
+                        id: user.id,
+                        email: user.email,
+                        password: '',
+                        firstName: user.firstName,
+                        lastName: user.lastName,
+                        accountStatus: user.accountStatus,
+                        pwdLogin: user.pwdLogin,
+                        googleOauth: user.googleOauth,
+                        googleEmail: user.googleEmail || '',
+                        updatePassword: false
+                    };
+                    this.currentView = 'edit';
+                },
+                
+                async createUser() {
+                    try {
+                        const payload = {
+                            email: this.form.email,
+                            firstName: this.form.firstName,
+                            lastName: this.form.lastName,
+                            accountStatus: this.form.accountStatus,
+                            pwdLogin: this.form.pwdLogin,
+                            googleOauth: this.form.googleOauth
+                        };
+                        
+                        if (this.form.pwdLogin && this.form.password) {
+                            payload.password = this.form.password;
+                        }
+                        
+                        if (this.form.googleOauth && this.form.googleEmail) {
+                            payload.googleEmail = this.form.googleEmail;
+                        }
+                        
+                        const response = await fetch(`${API_BASE}/admin/users`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${this.getToken()}`
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        const data = await response.json();
+                        if (data.success) {
+                            this.showAlert('success', 'User created successfully');
+                            setTimeout(() => this.showUserList(), 1500);
+                        } else {
+                            this.showAlert('error', data.message || 'Failed to create user');
+                        }
+                    } catch (error) {
+                        console.error('Create user error:', error);
+                        this.showAlert('error', 'Failed to create user');
+                    }
+                },
+                
+                async updateUser() {
+                    try {
+                        const payload = {
+                            accountStatus: this.form.accountStatus,
+                            pwdLogin: this.form.pwdLogin,
+                            googleOauth: this.form.googleOauth
+                        };
+                        
+                        if (this.form.updatePassword && this.form.password) {
+                            payload.password = this.form.password;
+                        }
+                        
+                        if (this.form.googleOauth) {
+                            payload.googleEmail = this.form.googleEmail || null;
+                        }
+                        
+                        const response = await fetch(`${API_BASE}/admin/users/${this.form.id}`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${this.getToken()}`
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        const data = await response.json();
+                        if (data.success) {
+                            this.showAlert('success', 'User updated successfully');
+                            setTimeout(() => this.showUserList(), 1500);
+                        } else {
+                            this.showAlert('error', data.message || 'Failed to update user');
+                        }
+                    } catch (error) {
+                        console.error('Update user error:', error);
+                        this.showAlert('error', 'Failed to update user');
+                    }
+                },
+                
+                logout() {
+                    localStorage.removeItem('adminToken');
+                    this.isAdmin = false;
+                }
+            },
+            mounted() {
+                const token = localStorage.getItem('adminToken');
+                
+                if (token) {
+                    try {
+                        const payload = JSON.parse(atob(token.split('.')[1]));
+                        // Check if roles array includes 'admin'
+                        if (Array.isArray(payload.roles) && payload.roles.includes('admin')) {
+                            this.isAdmin = true;
+                        }
+                    } catch (e) {
+                        console.error("Invalid token:", e);
+                        this.isAdmin = false;
+                        localStorage.removeItem('adminToken');
+                    }
+                }
+                
+                this.loading = false;
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

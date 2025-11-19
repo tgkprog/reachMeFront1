@@ -164,7 +164,10 @@ router.get("/check", authenticateToken, async (req, res) => {
     });
 
     // Server's minimum poll time (in seconds)
-    const min_poll_time = 30;
+    const min_poll_time = parseInt(
+      process.env.MIN_POLL_TIME_SECONDS || "10",
+      10
+    );
 
     res.json({ commands, min_poll_time });
   } catch (error) {

@@ -2,10 +2,7 @@
   <div class="alarms-container">
     <img src="/reachmeBanner.png" alt="ReachMe" class="banner-img" />
 
-    <div class="header">
-      <h1>Alarm History</h1>
-      <button @click="goBack" class="btn-secondary">Back to Controls</button>
-    </div>
+    <h1>Alarm History</h1>
     
     <div v-if="notificationPermission !== 'granted'" class="notification-banner">
       <p>⚠️ Notifications are blocked. You won't receive real-time alerts.</p>
@@ -44,39 +41,23 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import storage from '@/services/storage'
+import { useAlarmStore } from '@/stores/alarms'
 
-const router = useRouter()
+const alarmStore = useAlarmStore()
+const alarmStore = useAlarmStore()
 
 const alarms = ref<any[]>([])
 const notificationPermission = ref(Notification.permission)
 
 onMounted(() => {
   loadAlarms()
+  alarmStore.clearUnread()
 })
 
 function parseDate(dateStr: string): Date {
   if (!dateStr) return new Date()
-  // Pattern: no timezone info -> treat as LOCAL wall time, not UTC
-  const basic = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?$/
-  if (basic.test(dateStr)) {
-    // Split components and construct Date(year, monthIndex, day, hour, minute, second, ms) in local tz
-    const cleaned = dateStr.replace('T', ' ')
-    const [datePart, timePart] = cleaned.split(' ')
-    const [y, m, d] = datePart.split('-').map(Number)
-    const [hh, mm, ssRaw] = timePart.split(':')
-    let ms = 0
-    let ssStr = ssRaw
-    if (ssRaw.includes('.')) {
-      const [secPart, msPart] = ssRaw.split('.')
-      ms = Number(msPart.padEnd(3, '0').slice(0,3))
-      ssStr = secPart
-    }
-    const sec = Number(ssStr)
-    return new Date(y, m - 1, d, Number(hh), Number(mm), sec, ms)
-  }
-  // If string already has Z or offset, let Date parse it as is
+  // Always use standard Date constructor which handles UTC (Z) and timezone offsets correctly
   return new Date(dateStr)
 }
 
@@ -109,10 +90,6 @@ async function requestNotificationPermission() {
     const permission = await Notification.requestPermission()
     notificationPermission.value = permission
   }
-}
-
-function goBack() {
-  router.push('/controls')
 }
 </script>
 

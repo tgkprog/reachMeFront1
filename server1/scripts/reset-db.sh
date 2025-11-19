@@ -37,11 +37,21 @@ fi
 echo ""
 echo "🔄 Executing schema_full.sql..."
 
-mysql -h "$DB_HOST" -P "${DB_PORT:-3306}" -u "$DB_USER" -p"$DB_PWD" "$DB_NAME" < db/schema_full.sql
+mysql -h "$DB_HOST" -P "${DB_PORT:-3306}" -u "$DB_USER" -p"$DB_PWD" "$DB_NAME" < db/ddl.sql
 
 if [ $? -eq 0 ]; then
-    echo "✅ Database reset complete!"
+    echo "✅ Database DDL complete!"
 else
-    echo "❌ Database reset failed"
+    echo "❌ Database DDL failed"
+    exit 1
+fi
+
+mysql -h "$DB_HOST" -P "${DB_PORT:-3306}" -u "$DB_USER" -p"$DB_PWD" "$DB_NAME" < db/data.sql
+
+
+if [ $? -eq 0 ]; then
+    echo "✅ Database data complete!"
+else
+    echo "❌ Database Data failed"
     exit 1
 fi

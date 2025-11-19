@@ -30,6 +30,7 @@ const userAuthRoutes = require("./routes/userAuth");
 
 // Import database and cache
 const { initDB } = require("./db/connection");
+const { seedAdminUsers } = require("./db/createFirst");
 const publicReachMeCache = require("./utils/cache");
 
 const app = express();
@@ -37,8 +38,8 @@ const app = express();
 // ===================================
 // View Engine Configuration
 // ===================================
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'src/main/templates'));
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "src/main/templates"));
 
 // ===================================
 // Environment Configuration
@@ -110,7 +111,8 @@ app.use(morgan(isDev ? "dev" : "combined"));
 // ===================================
 // Static Files
 // ===================================
-app.use("/public", express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "public")));
+app.use("/admin", express.static(path.join(__dirname, "public/admin")));
 
 // ===================================
 // Session Configuration
@@ -218,7 +220,7 @@ app.get("/test", (req, res) => {
 // OAuth routes
 app.use("/oauth", authRoutes);
 
-// Admin routes
+// Admin routes - protected by middleware defined in admin.js
 app.use("/admin", adminRoutes);
 
 // User authentication routes
@@ -273,6 +275,10 @@ async function startServer() {
     // Initialize database
     console.log("🔌 Initializing database connection...");
     initDB();
+
+    // Seed admin users
+    console.log("👤 Seeding admin users...");
+    await seedAdminUsers();
 
     // Load active public ReachMe URLs into cache
     console.log("📦 Loading public ReachMe URLs into cache...");

@@ -50,6 +50,24 @@ router.post("/create", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "User ID not found in token" });
     }
 
+    const db = getDB();
+
+    // Check how many active public reachmes the user has
+    const maxAllowed = parseInt(process.env.MAX_PUBLIC_REACHMES || "15", 10);
+    const [countRows] = await db.execute(
+      "SELECT COUNT(*) as count FROM pblcRechms WHERE user_id = ? AND is_active = TRUE",
+      [userId]
+    );
+
+    const activeCount = countRows[0].count;
+    if (activeCount >= maxAllowed) {
+      return res.status(400).json({
+        error: `Maximum active public ReachMe URLs reached (${maxAllowed}). Please deactivate some before creating new ones.`,
+        maxAllowed,
+        currentActive: activeCount,
+      });
+    }
+
     // Validate deactivation time if provided
     if (deactivateAt) {
       const validation = validateDeactivateTime(deactivateAt, null);
@@ -57,8 +75,6 @@ router.post("/create", authenticateToken, async (req, res) => {
         return res.status(400).json({ error: validation.error });
       }
     }
-
-    const db = getDB();
 
     // Generate unique code
     const urlCode = await generateUniqueCode(db);

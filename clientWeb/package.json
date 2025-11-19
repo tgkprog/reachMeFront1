@@ -4,9 +4,11 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "predev": "node scripts/generate-config.js",
     "dev": "vite",
-    "dev:8087": "vite --port 8087",
-    "dev:8088": "vite --port 8088",
+    "dev:8087": "node scripts/generate-config.js && vite --port 8087",
+    "dev:8088": "node scripts/generate-config.js && vite --port 8088",
+    "prebuild": "node scripts/generate-config.js",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "type-check": "vue-tsc --noEmit"

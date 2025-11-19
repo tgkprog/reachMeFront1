@@ -24,6 +24,7 @@ CREATE TABLE users (
   USER_GOOGLE_EMAIL VARCHAR(255) NULL UNIQUE COMMENT 'Google OAuth email (can differ from primary email)',
   first_name VARCHAR(100) NULL,
   last_name VARCHAR(100) NULL,
+  admin CHAR(3) DEFAULT 'no',
   account_status ENUM('active','suspended','deleted') DEFAULT 'active',
   balance_tokens INT DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

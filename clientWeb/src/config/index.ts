@@ -16,8 +16,7 @@ interface Config {
 const config: Config = {
   api: {
     baseUrl:
-      (window as any).API_BASE_URL ||
-      new URLSearchParams(window.location.search).get("api") ||
+      (window as any).APP_CONFIG?.API_BASE_URL ||
       import.meta.env.VITE_API_BASE_URL ||
       "https://reachme2.com:8052",
   },

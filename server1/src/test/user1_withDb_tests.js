@@ -5,35 +5,48 @@
  * Prerequisites:
  * - Server running at https://reachme2.com:8052
  * - Database configured in .local.env
- * - Admin credentials in src/test/admin.env
+ * - Admin credentials in ../.admin.users
  *
  * Usage: node src/test/user1_withDb_tests.js
  */
 
 const https = require("https");
-const http = require("http");
 const mysql = require("mysql2/promise");
 const path = require("path");
 const fs = require("fs");
-const crypto = require("crypto");
+const { encryptPassword, decryptPassword } = require("../../utils/crypto");
 
 // Load environment configuration
 const { loadEnv } = require("../utils/loadEnv");
 loadEnv(__dirname);
 
-// Load admin credentials
-const adminEnvPath = path.join(__dirname, "admin.env");
-const adminEnvContent = fs.readFileSync(adminEnvPath, "utf8");
-const adminCreds = {};
-adminEnvContent.split("\n").forEach((line) => {
-  const [key, value] = line.split("=");
-  if (key && value) {
-    adminCreds[key.trim()] = value.trim();
-  }
-});
+// Load admin credentials from src/.admin.users
+const adminUsersPath = path.join(__dirname, "..", ".admin.users");
+const adminUsersContent = fs.readFileSync(adminUsersPath, "utf8");
+const adminEntries = adminUsersContent
+  .split("\n")
+  .map((line) => line.trim())
+  .filter((line) => line && !line.startsWith("#"));
 
-const ADMIN_EMAIL = adminCreds.u;
-const ADMIN_PASSWORD = adminCreds.p;
+if (adminEntries.length === 0) {
+  throw new Error("No admin users found in server1/src/.admin.users");
+}
+
+const adminParts = adminEntries[0].split("|").map((part) => part.trim());
+
+if (adminParts.length < 3) {
+  throw new Error(
+    "Invalid admin entry in server1/src/.admin.users. Expected format: email|salt|password"
+  );
+}
+
+const [ADMIN_EMAIL, , ADMIN_PASSWORD] = adminParts;
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  throw new Error(
+    "Invalid admin entry in server1/src/.admin.users. Expected format: email|salt|password"
+  );
+}
 
 // Test configuration
 const BASE_URL = "https://reachme2.com:8052";
@@ -358,19 +371,54 @@ async function testSendMessage() {
  * Setup admin user
  */
 async function setupAdminUser() {
-  console.log("\n🔐 Setting up admin user...");
+  console.log("\n🔐 Ensuring admin user exists...");
 
-  const { setAdminUser } = require("../../utils/adminAuth");
-  const encryptionKey =
-    process.env.ADMIN_ENCRYPTION_KEY || "hFsd934mcW7jKp2qRt8vYz";
+  const encryptionKey = process.env.ENCRYPTION_KEY || "dfJKDF98034DF";
+
+  if (!process.env.ENCRYPTION_KEY) {
+    console.warn(
+      "ENCRYPTION_KEY not set in environment; using default seeded value."
+    );
+  }
 
   try {
-    const result = setAdminUser(ADMIN_EMAIL, ADMIN_PASSWORD, encryptionKey);
-    console.log(`✅ Admin user configured: ${ADMIN_EMAIL}`);
-    console.log(`   Salt: ${result.salt.substring(0, 10)}...`);
-    console.log(`   Encrypted: ${result.encrypted.substring(0, 20)}...`);
+    const [existingUsers] = await dbConnection.execute(
+      "SELECT id, password_hash, admin FROM users WHERE email = ?",
+      [ADMIN_EMAIL]
+    );
+
+    const passwordHash = encryptPassword(ADMIN_PASSWORD, encryptionKey);
+
+    if (existingUsers.length > 0) {
+      const user = existingUsers[0];
+      let needsUpdate = user.admin !== "yes" || !user.password_hash;
+
+      if (user.password_hash) {
+        const decrypted = decryptPassword(user.password_hash, encryptionKey);
+        if (decrypted !== ADMIN_PASSWORD) {
+          needsUpdate = true;
+        }
+      }
+
+      if (needsUpdate) {
+        await dbConnection.execute(
+          "UPDATE users SET password_hash = ?, admin = 'yes', pwdLogin = true, account_status = 'active' WHERE id = ?",
+          [passwordHash, user.id]
+        );
+        console.log(`✅ Updated existing admin user: ${ADMIN_EMAIL}`);
+      } else {
+        console.log(`✅ Admin user already configured: ${ADMIN_EMAIL}`);
+      }
+    } else {
+      await dbConnection.execute(
+        `INSERT INTO users (email, password_hash, first_name, last_name, admin, pwdLogin, account_status)
+         VALUES (?, ?, ?, ?, 'yes', true, 'active')`,
+        [ADMIN_EMAIL, passwordHash, "Admin", "User"]
+      );
+      console.log(`✅ Inserted admin user: ${ADMIN_EMAIL}`);
+    }
   } catch (error) {
-    console.error("❌ Error setting up admin user:", error.message);
+    console.error("❌ Error ensuring admin user:", error.message);
     throw error;
   }
 }
@@ -379,15 +427,21 @@ async function setupAdminUser() {
  * Test admin login
  */
 async function testAdminLogin() {
-  console.log("\n🔑 Testing admin login...");
+  console.log("\n🔑 Testing admin login via /user/login...");
 
   try {
-    const response = await makeRequest("POST", "/admin/login", {
+    const response = await makeRequest("POST", "/user/login", {
       email: ADMIN_EMAIL,
       password: ADMIN_PASSWORD,
+      isAdminLogin: true,
     });
 
-    if (response.status === 200 && response.data.success) {
+    if (
+      response.status === 200 &&
+      response.data.success &&
+      Array.isArray(response.data.roles) &&
+      response.data.roles.includes("admin")
+    ) {
       console.log("✅ Admin login successful");
       console.log(`   Token: ${response.data.token.substring(0, 30)}...`);
       return response.data.token;
@@ -405,21 +459,23 @@ async function testAdminLogin() {
  * Test admin authentication
  */
 async function testAdminAuth(token) {
-  console.log("\n🔒 Testing admin authentication...");
+  console.log("\n🔒 Testing admin authorization on /admin/users...");
 
   try {
-    const response = await makeRequest("GET", "/admin/test", null, token);
+    const response = await makeRequest("GET", "/admin/users", null, token);
 
     if (response.status === 200 && response.data.success) {
-      console.log("✅ Admin authentication successful");
-      console.log(`   User: ${response.data.user.email}`);
-      console.log(`   Role: ${response.data.user.role}`);
+      const userCount = Array.isArray(response.data.users)
+        ? response.data.users.length
+        : 0;
+      console.log("✅ Admin authorization successful");
+      console.log(`   Users returned: ${userCount}`);
     } else {
-      console.error("❌ Admin authentication failed:", response.data);
-      throw new Error("Admin authentication failed");
+      console.error("❌ Admin authorization failed:", response.data);
+      throw new Error("Admin authorization failed");
     }
   } catch (error) {
-    console.error("❌ Error during admin authentication:", error.message);
+    console.error("❌ Error during admin authorization:", error.message);
     throw error;
   }
 }

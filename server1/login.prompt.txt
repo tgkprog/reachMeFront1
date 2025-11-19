@@ -1,0 +1,88 @@
+You are designing a complete authentication system for a custom Node.js + Express web application.  
+Right now only few users so a few things are out of standards.
+SYSTEM REQUIREMENTS:
+
+1. CORE USER MODEL
+   - Main fields:
+       id
+       primaryEmail (used for login + password reset)
+       passwordHash (nullable)
+       isPasswordSet (boolean)
+       oneTimeToken (nullable)
+       oneTimeTokenExpiry
+       resetToken (nullable)
+       resetTokenExpiry
+       oauth:
+           google: { email, enabled }
+           facebook: { email, enabled }
+           apple: { email, enabled }
+       roles: ["user", "admin", "one-time"]
+   - A user may have:
+       * password login via primaryEmail
+       * oauth logins via different emails for Google/Apple/Facebook
+       * admin-created password OR admin-created one-time login link
+
+2. ADMIN CREATE USER FLOW
+   - Admin can create:
+       a) full user with email + password
+       b) user with email but NO password
+           → system generates a one-time setup token + expiry
+           → send email with link: /auth/one-time?token=XYZ
+           → link allows user to set new password and becomes a normal user
+           - show link to admin so they can copy and send via secondary means like whatsapp.
+
+3. PASSWORD LOGIN FLOW (primaryEmail + password)
+   - Standard login endpoint using bcrypt or argon2.
+   - If password not set → reject and suggest admin-created setup link.
+
+4. OAUTH LOGIN FLOW
+   - Use passport.js or custom OAuth2 logic.
+   - Match user by provider-specific stored email.
+   - Only allow login if provider.enabled == true.
+   - If user not found OR disabled → reject login.
+   - On success, create normal session/JWT.
+
+5. ONE-TIME LOGIN FLOW (SETUP)
+   - Endpoint /auth/one-time
+   - Requires token + not expired
+   - Grants temporary “one-time” role only
+   - User chooses a password
+   - System clears oneTimeToken fields
+   - User now converts to normal “user” role
+
+6. FORGOT PASSWORD FLOW
+   - User triggers with primaryEmail only
+   - System generates resetToken + expiry
+   - Email link: /auth/reset?token=ABC
+   - One-time mini auth: only allows changing password
+   - After success → resetToken cleared
+
+7. BACKEND SECURITY RULES
+   - “one-time” role = can ONLY call password-setup/reset routes
+   - “user” role = normal access
+   - “admin” role = user management
+   - Reject expired/used tokens
+   - Use HTTPS-only cookies or JWT
+   - Rate-limit login, reset, and one-time endpoints
+
+8. FRONTEND (for now)
+   - One-time setup + reset flows handled by simple JS form posts
+   - Backend always enforces role checks even if frontend is simple
+
+9. OUTPUT FORMAT FOR CODING REQUESTS
+   - When asked for implementation:
+       * separate files (routes, controllers, services)
+       * minimal dependencies
+       * no unnecessary boilerplate
+       * clearly named functions: createUser, generateOneTimeToken, verifyPasswordLogin, startPasswordReset, etc.
+
+10. WHEN GENERATING CODE
+   - Use Express style:
+         router.post('/login', ...)
+         router.post('/reset/start', ...)
+         router.post('/reset/finish', ...)
+   - Use async/await
+   - Password hashing: argon2 or bcrypt
+   - Token generation: crypto.randomBytes or JWT for one-time links
+   - Keep expiries ~15 min for one-time and reset tokens
+   - Avoid any signup logic for now (signup disabled)

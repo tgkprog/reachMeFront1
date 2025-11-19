@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Encryption Utility
- * Encrypts a string using the admin encryption key
+ * Encrypts a string using the shared encryption key
  *
  * Usage: node src/enc.js "your-password-here"
  */
@@ -13,13 +13,13 @@ const { loadEnv } = require("./utils/loadEnv");
 loadEnv(__dirname);
 
 // Configuration from environment
-const ADMIN_ENCRYPTION_KEY = process.env.ADMIN_ENCRYPTION_KEY;
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "dfJKDF98034DF";
 const ALGORITHM = "aes-256-cbc";
 
-if (!ADMIN_ENCRYPTION_KEY) {
-  console.error("❌ ADMIN_ENCRYPTION_KEY not found in environment");
-  console.error("   Make sure .env file contains ADMIN_ENCRYPTION_KEY");
-  process.exit(1);
+if (!process.env.ENCRYPTION_KEY) {
+  console.warn(
+    "⚠️  ENCRYPTION_KEY not found in environment; using default seeded value."
+  );
 }
 
 /**
@@ -34,7 +34,7 @@ function deriveKey(baseKey) {
  */
 function encryptPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
-  const key = deriveKey(ADMIN_ENCRYPTION_KEY);
+  const key = deriveKey(ENCRYPTION_KEY);
   const iv = crypto.randomBytes(16);
 
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
@@ -65,7 +65,7 @@ if (require.main === module) {
   console.log("Salt:      ", result.salt);
   console.log("Encrypted: ", result.encrypted);
   console.log("─────────────────────────────────────────");
-  console.log("\nFor admin.users file format:");
+  console.log("\nFor .admin.users file format:");
   console.log(`email|${result.salt}|${result.encrypted}`);
   console.log("");
 }

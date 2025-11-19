@@ -10,6 +10,9 @@ node_modules/
 .local.env
 *.env.local
 
+# Local DB bootstrap script (do not commit)
+server1/db/localFirst.sql
+
 # Logs
 logs/
 *.log

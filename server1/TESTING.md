@@ -232,7 +232,7 @@ Error: Access denied for user
 ```
 Admin login failed
 ```
-**Solution:** Make sure `src/admin.users` file exists with admin credentials
+**Solution:** Make sure `src/.admin.users` file exists with admin credentials
 
 ### bcryptjs not found
 ```

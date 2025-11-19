@@ -101,14 +101,12 @@ router.post("/create", async (req, res) => {
     }
 
     const db = getDB();
-    const encryptionKey = process.env.ADMIN_ENCRYPTION_KEY;
+    const encryptionKey = process.env.ENCRYPTION_KEY || "dfJKDF98034DF";
 
-    if (!encryptionKey) {
-      console.error("ADMIN_ENCRYPTION_KEY not set in environment");
-      return res.status(500).json({
-        success: false,
-        error: "Server configuration error",
-      });
+    if (!process.env.ENCRYPTION_KEY) {
+      console.warn(
+        "ENCRYPTION_KEY not set in environment; using default seeded value."
+      );
     }
 
     // Check if user already exists
@@ -200,29 +198,27 @@ router.post("/create", async (req, res) => {
  */
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, isAdminLogin } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        error: "Email and password required",
+        message: "Email and password required",
       });
     }
 
     const db = getDB();
-    const encryptionKey = process.env.ADMIN_ENCRYPTION_KEY;
+    const encryptionKey = process.env.ENCRYPTION_KEY || "dfJKDF98034DF";
 
-    if (!encryptionKey) {
-      console.error("ADMIN_ENCRYPTION_KEY not set in environment");
-      return res.status(500).json({
-        success: false,
-        error: "Server configuration error",
-      });
+    if (!process.env.ENCRYPTION_KEY) {
+      console.warn(
+        "ENCRYPTION_KEY not set in environment; using default seeded value."
+      );
     }
 
     // Search for user by primary email
     const [users] = await db.execute(
-      `SELECT id, email, password_hash, pwdLogin, first_name, last_name, account_status 
+      `SELECT id, email, password_hash, pwdLogin, first_name, last_name, account_status, admin 
        FROM users 
        WHERE email = ? 
        LIMIT 1`,
@@ -232,7 +228,7 @@ router.post("/login", async (req, res) => {
     if (users.length === 0) {
       return res.status(401).json({
         success: false,
-        error: "Invalid email or password",
+        message: "Invalid email or password",
       });
     }
 
@@ -242,7 +238,7 @@ router.post("/login", async (req, res) => {
     if (!user.pwdLogin) {
       return res.status(403).json({
         success: false,
-        error: "Password login is not enabled for this account",
+        message: "Password login is not enabled for this account",
       });
     }
 
@@ -250,7 +246,7 @@ router.post("/login", async (req, res) => {
     if (user.account_status !== "active") {
       return res.status(403).json({
         success: false,
-        error: "Account is not active",
+        message: "Account is not active",
       });
     }
 
@@ -258,7 +254,7 @@ router.post("/login", async (req, res) => {
     if (!user.password_hash) {
       return res.status(401).json({
         success: false,
-        error: "Invalid email or password",
+        message: "Invalid email or password",
       });
     }
 
@@ -269,19 +265,34 @@ router.post("/login", async (req, res) => {
     if (!decryptedPassword || decryptedPassword !== password) {
       return res.status(401).json({
         success: false,
-        error: "Invalid email or password",
+        message: "Invalid email or password",
       });
     }
 
-    // Generate JWT token
+    // --- Role-based JWT generation ---
+    const userRoles = user.admin === "yes" ? ["admin"] : [];
+
+    if (isAdminLogin && !userRoles.includes("admin")) {
+      return res.status(403).json({
+        success: false,
+        message: "User is not an administrator.",
+      });
+    }
+
+    const tokenPayload = {
+      userId: user.id,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+    };
+
+    // Add roles to payload only if they exist
+    if (userRoles.length > 0) {
+      tokenPayload.roles = userRoles;
+    }
+
     const token = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        role: "user",
-      },
+      tokenPayload,
       process.env.JWT_SECRET || "your-jwt-secret",
       { expiresIn: process.env.JWT_EXPIRES_IN || "24h" }
     );
@@ -294,7 +305,7 @@ router.post("/login", async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });
 
-    res.json({
+    const responseJson = {
       success: true,
       message: "Login successful",
       token,
@@ -304,12 +315,19 @@ router.post("/login", async (req, res) => {
         firstName: user.first_name,
         lastName: user.last_name,
       },
-    });
+    };
+
+    // Add roles to the final response JSON only if they exist
+    if (userRoles.length > 0) {
+      responseJson.roles = userRoles;
+    }
+
+    res.json(responseJson);
   } catch (error) {
     console.error("User login error:", error);
     res.status(500).json({
       success: false,
-      error: "Login failed",
+      message: "Login failed",
     });
   }
 });

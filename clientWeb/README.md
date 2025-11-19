@@ -2,6 +2,10 @@
 
 Modern web client for ReachMe using Vue 3.5.24 and Vite.
 
+# local 
+cd ~/code/reachme/clientWeb
+#npm install 
+npm run dev:8087
 ## Features
 
 - ✅ Google OAuth Sign-In (using Google Identity Services)

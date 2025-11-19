@@ -42,6 +42,7 @@ class AuthService {
 
       storage.saveUser(user);
       storage.saveToken(token);
+      storage.clearLastLoginAttempt();
 
       return response.data;
     } catch (error) {
@@ -60,6 +61,7 @@ class AuthService {
 
       storage.saveUser(user);
       storage.saveToken(token);
+      storage.clearLastLoginAttempt();
 
       return response.data;
     } catch (error) {

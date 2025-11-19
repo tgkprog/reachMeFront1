@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Login</title>
+</head>
+<body>
+    <h3>Admin Login</h3>
+    <form id="loginForm">
+        <div>
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+        <div style="margin-top: 10px;">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <div style="margin-top: 10px;">
+            <button type="submit">Login</button>
+        </div>
+    </form>
+    <div id="message"></div>
+
+    <script src="/config.js"></script>
+    <script>
+        // Use API base URL from generated config
+        const API_BASE_URL = window.APP_CONFIG?.API_BASE_URL || 'https://reachme2.com:8052';
+
+        document.getElementById('loginForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const username = event.target.username.value;
+            const password = event.target.password.value;
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = '';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/user/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: username, password, isAdminLogin: true })
+                });
+
+                const data = await response.json();
+
+                // Check for a 'roles' array that includes 'admin'
+                if (response.ok && data.token && data.roles && data.roles.includes('admin')) {
+                    localStorage.setItem('adminToken', data.token);
+                    window.location.href = '/admin.html';
+                } else {
+                    messageDiv.textContent = 'Login failed. Admin access required.';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                messageDiv.textContent = 'Login error. Please try again.';
+            }
+        });
+    </script>
+</body>
+</html>
+

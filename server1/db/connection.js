@@ -24,6 +24,7 @@ function initDB() {
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
+    timezone: "+00:00", // Use UTC for all timestamp operations
   });
 
   console.log("✅ Database connection pool initialized");

@@ -108,6 +108,10 @@ class StorageService {
     return data ? parseInt(data, 10) : null;
   }
 
+  clearLastLoginAttempt(): void {
+    this.storage.removeItem(STORAGE_KEYS.LAST_LOGIN_ATTEMPT);
+  }
+
   // Clear all
   clear(): void {
     this.storage.clear();

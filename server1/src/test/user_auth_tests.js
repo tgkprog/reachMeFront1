@@ -14,7 +14,7 @@ const https = require("https");
 // Test configuration
 const BASE_URL = "https://reachme2.com:8052";
 const TEST_USER_EMAIL = "test1@test.com"; // Primary email
-const TEST_USER_PWD = "ds2#fk_3S3Vf_s";
+const TEST_USER_PWD = "ds2#fk_3S3Vf_s";//ds2#fk_3S3Vf_s
 const TEST_USER_GOOGLE_EMAIL = "test1.different@gmail.com";
 
 /**

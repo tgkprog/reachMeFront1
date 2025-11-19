@@ -18,17 +18,7 @@
       <button @click="dismissAlarm" class="btn-dismiss">Dismiss</button>
     </div>
 
-    <div class="header">
-      <h1>ReachMe Controls</h1>
-      <div class="header-actions">
-        <button @click="goToAlarms" class="btn-secondary">
-          Alarms
-          <span v-if="unreadCount > 0" class="badge">{{ unreadCount }}</span>
-        </button>
-        <button @click="goToAbout" class="btn-secondary">About</button>
-        <button @click="handleLogout" class="btn-danger">Logout</button>
-      </div>
-    </div>
+    <h1>ReachMe Controls</h1>
     
     <div class="user-info" v-if="user">
       <p><strong>Email:</strong> {{ user.email }}</p>
@@ -80,16 +70,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import authService from '@/services/auth'
 import pollingService from '@/services/polling'
 import storage from '@/services/storage'
 import { useAlarmStore } from '@/stores/alarms'
 
-const router = useRouter()
 const alarmStore = useAlarmStore()
-const { latestAlarm, unreadCount } = storeToRefs(alarmStore)
+const { latestAlarm } = storeToRefs(alarmStore)
 
 const user = ref(storage.getUser())
 const deviceId = ref(storage.getDeviceId())
@@ -139,22 +126,6 @@ async function requestNotificationPermission() {
   if ('Notification' in window) {
     const permission = await Notification.requestPermission()
     notificationPermission.value = permission
-  }
-}
-
-function goToAlarms() {
-  router.push('/alarms')
-}
-
-function goToAbout() {
-  router.push('/about')
-}
-
-async function handleLogout() {
-  if (confirm('Are you sure you want to logout?')) {
-    pollingService.stop()
-    await authService.logout()
-    router.push('/login')
   }
 }
 </script>
@@ -231,32 +202,10 @@ async function handleLogout() {
   transform: scale(1.05);
 }
 
-.badge {
-  background: #ff4444;
-  color: white;
-  padding: 0.2rem 0.5rem;
-  border-radius: 10px;
-  font-size: 0.8rem;
-  margin-left: 0.5rem;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.header h1 {
+h1 {
   font-size: 2rem;
   color: #fff;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
+  margin-bottom: 2rem;
 }
 
 .user-info {
