@@ -1,9 +1,6 @@
 <template>
   <div class="contacts-container">
-    <img src="/reachmeBanner.png" alt="ReachMe" class="banner-img" />
-
     <h1>Contacts</h1>
-    
     <div class="placeholder">
       <p>Contacts management coming soon...</p>
     </div>

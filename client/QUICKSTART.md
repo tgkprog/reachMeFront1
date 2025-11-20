@@ -8,6 +8,7 @@ npm install --legacy-peer-deps # if not already done
 npm run web:8087               # start web app on http://localhost:8087
 ```
 
+
 Get the ReachMe React Native client running in 5 steps.
 
 ## Prerequisites
@@ -51,7 +52,7 @@ GOOGLE_WEB_CLIENT_ID=your-actual-client-id.apps.googleusercontent.com
 API_BASE_URL=https://rentpay.com:8082
 
 # Optional: Adjust polling intervals (in seconds)
-DEFAULT_POLL_INTERVAL=60
+DEFAULT_POLL_INTERVAL=20
 MIN_POLL_INTERVAL=10
 MAX_POLL_INTERVAL=180
 ```

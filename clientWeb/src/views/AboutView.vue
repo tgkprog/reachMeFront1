@@ -1,23 +1,19 @@
 <template>
   <div class="about-container">
-    <img src="/reachmeBanner.png" alt="ReachMe" class="banner-img" />
-
     <h1>About</h1>
-    
     <div class="content" v-html="htmlContent"></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
-import config from '@/config'
+import api from '@/config/axios'
 
 const htmlContent = ref('')
 
 onMounted(async () => {
   try {
-    const response = await axios.get(`${config.api.baseUrl}/about.html`)
+    const response = await api.get('/about.html')
     htmlContent.value = response.data
   } catch (error) {
     console.error('Failed to load about content:', error)

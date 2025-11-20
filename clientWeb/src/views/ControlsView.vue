@@ -1,7 +1,5 @@
 <template>
   <div class="controls-container">
-    <img src="/reachmeBanner.png" alt="ReachMe" class="banner-img" />
-    
     <!-- Alarm Banner -->
     <div v-if="latestAlarm" class="alarm-banner">
       <div class="alarm-content">
@@ -69,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import pollingService from '@/services/polling'
 import storage from '@/services/storage'
@@ -81,27 +79,20 @@ const { latestAlarm } = storeToRefs(alarmStore)
 const user = ref(storage.getUser())
 const deviceId = ref(storage.getDeviceId())
 const pollInterval = ref(60)
-const isPolling = ref(false)
+const isPolling = computed(() => pollingService.isPolling)
 const notificationPermission = ref(Notification.permission)
 
 onMounted(() => {
-  // Start polling
+  // Load saved poll interval
   const settings = storage.getPollSettings()
   if (settings && settings.intervalSeconds) {
     pollInterval.value = settings.intervalSeconds
   }
   
-  pollingService.start(pollInterval.value)
-  isPolling.value = true
-  
   // Request notification permission if needed
   if (notificationPermission.value === 'default') {
     requestNotificationPermission()
   }
-})
-
-onUnmounted(() => {
-  pollingService.stop()
 })
 
 function dismissAlarm() {
@@ -135,16 +126,6 @@ async function requestNotificationPermission() {
   padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
-}
-
-.banner-img {
-  width: 100%;
-  max-height: 120px;
-  object-fit: contain;
-  margin-bottom: 2rem;
-  border-radius: 8px;
-  background: #1f1f1f;
-  padding: 1rem;
 }
 
 .alarm-banner {

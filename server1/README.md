@@ -279,3 +279,25 @@ server1/
 ## Support
 
 For issues or questions, refer to the main project documentation.
+
+## Integration runner & DB modes
+
+This repo supports running the backend with either a local SQLite file or a MariaDB backend. Use the `RUNTIME_DB` env var to choose the adapter.
+
+- `RUNTIME_DB=sqlite` — Uses the file at `db/reachme.sqlite` (created/initialized by the integration runner).
+- `RUNTIME_DB=maria` — Uses MariaDB (credentials from `.local.env` when `env=local`).
+
+Integration test runner:
+
+- Script: `./scripts/run_integration_tests.sh`
+- It starts the server with each backend, waits for `/health`, runs the integration tests, and writes logs to `logs/integrationTests/<timestamp>.log`.
+- `TEST_BASE_URL` can be set to override the base URL used by tests (defaults to `https://localhost:8052`).
+
+Run locally:
+
+```bash
+# from repo root
+./server1/scripts/run_integration_tests.sh
+```
+
+The runner exits non-zero if any backend run fails, suitable for CI.

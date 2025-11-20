@@ -15,6 +15,7 @@ const mysql = require("mysql2/promise");
 const path = require("path");
 const fs = require("fs");
 const { encryptPassword, decryptPassword } = require("../../utils/crypto");
+const db = require("../../src/db");
 
 // Load environment configuration
 const { loadEnv } = require("../utils/loadEnv");
@@ -49,7 +50,7 @@ if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
 }
 
 // Test configuration
-const BASE_URL = "https://reachme2.com:8052";
+const BASE_URL = process.env.TEST_BASE_URL || "https://reachme2.com:8052";
 const TEST_USER_EMAIL = "test1@test.com"; // Primary email / User ID
 const TEST_USER_PWD = "ds2#fk_3S3Vf_s";
 const TEST_USER_GOOGLE_EMAIL = "test1.different@gmail.com"; // Google OAuth email (different from primary)
@@ -71,14 +72,55 @@ let dbConnection = null;
  * Initialize database connection
  */
 async function initDB() {
-  dbConnection = await mysql.createConnection({
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT || 3306,
-    user: process.env.DB_USER,
-    password: process.env.DB_PWD,
-    database: process.env.DB_NAME,
-  });
-  console.log("✅ Database connection established");
+  if (process.env.RUNTIME_DB === "sqlite") {
+    const sqlite3 = require("sqlite3").verbose();
+    const { promisify } = require("util");
+    const path = require("path");
+
+    const filename =
+      process.env.SQLITE_FILE ||
+      path.join(__dirname, "..", "..", "db", "reachme.sqlite");
+    const conn = new sqlite3.Database(filename);
+
+    conn.getAsync = promisify(conn.get).bind(conn);
+    conn.allAsync = promisify(conn.all).bind(conn);
+    conn.runAsync = function (sql, params = []) {
+      return new Promise((resolve, reject) => {
+        conn.run(sql, params, function (err) {
+          if (err) return reject(err);
+          resolve({ lastID: this.lastID, changes: this.changes });
+        });
+      });
+    };
+
+    // Provide mysql2-like execute() used in tests
+    dbConnection = {
+      execute: async (sql, params = []) => {
+        const t = sql.trim().toLowerCase();
+        if (t.startsWith("select") || t.startsWith("with")) {
+          const rows = await conn.allAsync(sql, params);
+          return [rows];
+        }
+        const res = await conn.runAsync(sql, params);
+        return [res];
+      },
+      close: async () => {
+        return new Promise((res, rej) =>
+          conn.close((e) => (e ? rej(e) : res()))
+        );
+      },
+    };
+    console.log("✅ SQLite test DB connected", filename);
+  } else {
+    dbConnection = await mysql.createConnection({
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT || 3306,
+      user: process.env.DB_USER,
+      password: process.env.DB_PWD,
+      database: process.env.DB_NAME,
+    });
+    console.log("✅ Database connection established");
+  }
 }
 
 /**
@@ -86,7 +128,11 @@ async function initDB() {
  */
 async function closeDB() {
   if (dbConnection) {
-    await dbConnection.end();
+    if (typeof dbConnection.end === "function") {
+      await dbConnection.end();
+    } else if (typeof dbConnection.close === "function") {
+      await dbConnection.close();
+    }
     console.log("✅ Database connection closed");
   }
 }
@@ -162,28 +208,17 @@ async function cleanupTestUser() {
   console.log("\n🧹 Cleaning up test user...");
 
   try {
-    const [rows] = await dbConnection.execute(
-      "SELECT id FROM users WHERE email = ?",
-      [TEST_USER_EMAIL]
-    );
-
-    if (rows.length > 0) {
-      const userId = rows[0].id;
-
-      // Delete related records
-      await dbConnection.execute(
-        "DELETE FROM reach_me_messages WHERE user_id = ?",
-        [userId]
-      );
-      await dbConnection.execute("DELETE FROM pblcRechms WHERE user_id = ?", [
-        userId,
-      ]);
-      await dbConnection.execute("DELETE FROM invites WHERE email = ?", [
-        TEST_USER_EMAIL,
-      ]);
-      await dbConnection.execute("DELETE FROM users WHERE id = ?", [userId]);
-
-      console.log(`✅ Deleted test user: ${TEST_USER_EMAIL}`);
+    // Use the DB adapter's helpers for a consistent teardown across backends
+    const existing = await db.getUserByEmail(TEST_USER_EMAIL);
+    if (existing && existing.id) {
+      const deleted = await db.deleteUserCascade(existing.id);
+      if (deleted) {
+        console.log(`✅ Deleted test user: ${TEST_USER_EMAIL}`);
+      } else {
+        console.log(
+          `⚠️  Attempted to delete user but 0 rows affected: ${TEST_USER_EMAIL}`
+        );
+      }
     } else {
       console.log(`ℹ️  Test user not found: ${TEST_USER_EMAIL}`);
     }
@@ -252,15 +287,19 @@ async function createPublicReachMe() {
 
     if (response.status === 200 && response.data.success) {
       testData.publicReachMeCode = response.data.urlCode;
+      // Prefer the userEmail returned by the create endpoint
+      testData.publicReachMeEmail = response.data.userEmail || TEST_USER_EMAIL;
       console.log(`✅ Created public ReachMe page`);
       console.log(`   URL Code: ${testData.publicReachMeCode}`);
       console.log(`   Full URL: ${response.data.fullUrl}`);
+      console.log(
+        `   User Email (from create): ${testData.publicReachMeEmail}`
+      );
       return testData.publicReachMeCode;
     } else {
       // Try creating via direct database insert
       const { generateUniqueCode } = require("../../utils/helpers");
-      const { getDB } = require("../../db/connection");
-      const db = getDB();
+      const db = require("../../src/db");
 
       const urlCode = await generateUniqueCode(db);
 
@@ -270,6 +309,8 @@ async function createPublicReachMe() {
       );
 
       testData.publicReachMeCode = urlCode;
+      // When creating directly in DB fallback, set the email from test user constant
+      testData.publicReachMeEmail = TEST_USER_EMAIL;
       console.log(`✅ Created public ReachMe page (direct DB)`);
       console.log(`   URL Code: ${urlCode}`);
       console.log(`   Full URL: ${BASE_URL}/r/${urlCode}/`);
@@ -299,16 +340,38 @@ async function testPublicReachMePage() {
 
     if (response.status === 200 && response.data.status === "test") {
       console.log(`✅ Public ReachMe page test successful`);
-      console.log(`   User ID returned: ${response.data.userId}`);
-      console.log(`   Expected User ID: ${TEST_USER_EMAIL}`);
+      console.log(`   Returned payload:`, response.data);
+      console.log(`   Expected user email: ${testData.publicReachMeEmail}`);
 
-      if (response.data.userId === TEST_USER_EMAIL) {
-        console.log(`   ✅ User ID matches!`);
-      } else {
-        console.log(`   ⚠️  User ID mismatch!`);
+      // Prefer explicit userEmail returned by the endpoint
+      const returnedEmail = response.data.userEmail || response.data.userId;
+      if (returnedEmail === testData.publicReachMeEmail) {
+        console.log(
+          `   ✅ Returned email matches created page owner email (${testData.publicReachMeEmail})`
+        );
+        return true;
       }
 
-      return true;
+      // Fallback: resolve numeric id to email
+      if (!isNaN(parseInt(returnedEmail, 10))) {
+        const userIdReturned = parseInt(returnedEmail, 10);
+        const [rows] = await dbConnection.execute(
+          "SELECT email FROM users WHERE id = ?",
+          [userIdReturned]
+        );
+        if (rows.length > 0 && rows[0].email === testData.publicReachMeEmail) {
+          console.log(
+            `   ✅ Resolved user id to expected email (${testData.publicReachMeEmail})`
+          );
+          return true;
+        }
+      }
+
+      console.error(
+        "❌ Public ReachMe page did not return expected user email",
+        response.data
+      );
+      return false;
     } else {
       console.error("❌ Public ReachMe page test failed:", response.data);
       return false;
@@ -326,16 +389,23 @@ async function testSendMessage() {
   console.log("\n📨 Testing message submission...");
 
   try {
+    // Create a random message to assert persistence
+    const randomMessage = `Test message ${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`;
+
+    const payload = {
+      message: randomMessage,
+      senderInfo: {
+        name: "Automated Test",
+        email: "test@example.com",
+      },
+    };
+
     const response = await makeRequest(
       "POST",
       `/r/${testData.publicReachMeCode}/`,
-      {
-        message: "Test message from automated test",
-        senderInfo: {
-          name: "Automated Test",
-          email: "test@example.com",
-        },
-      }
+      payload
     );
 
     console.log(`   Status Code: ${response.status}`);
@@ -344,19 +414,49 @@ async function testSendMessage() {
     if (response.status === 200 && response.data.status === "ok") {
       console.log(`✅ Message sent successfully`);
 
-      // Verify message in database
-      const [messages] = await dbConnection.execute(
+      // Verify message in database and that the contents match the random message
+      let [messages] = await dbConnection.execute(
         "SELECT * FROM reach_me_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
         [testData.userId]
       );
 
-      if (messages.length > 0) {
-        console.log(`   Message found in database:`);
-        console.log(`   - Message: ${messages[0].message}`);
-        console.log(`   - Sender: ${JSON.parse(messages[0].sender_info).name}`);
+      // Fallback: if not found by user_id (sqlite differences), try finding by public_reachme_id
+      if (!messages || messages.length === 0) {
+        const [pr] = await dbConnection.execute(
+          "SELECT id FROM pblcRechms WHERE url_code = ? LIMIT 1",
+          [testData.publicReachMeCode]
+        );
+        if (pr && pr.length > 0) {
+          const publicId = pr[0].id;
+          [messages] = await dbConnection.execute(
+            "SELECT * FROM reach_me_messages WHERE public_reachme_id = ? ORDER BY created_at DESC LIMIT 1",
+            [publicId]
+          );
+        }
       }
 
-      return true;
+      if (messages && messages.length > 0) {
+        const saved = messages[0];
+        const savedMessage = saved.message;
+        console.log(`   Message found in database:`);
+        console.log(`   - Message: ${savedMessage}`);
+        console.log(
+          `   - Sender: ${
+            saved.sender_info ? JSON.parse(saved.sender_info).name : "N/A"
+          }`
+        );
+
+        if (savedMessage === randomMessage) {
+          console.log("   ✅ Saved message matches sent message");
+          return true;
+        } else {
+          console.error("   ❌ Saved message does not match sent message!");
+          return false;
+        }
+      } else {
+        console.error("   ❌ No messages found in database after send");
+        return false;
+      }
     } else {
       console.error("❌ Message sending failed:", response.data);
       return false;
@@ -382,39 +482,41 @@ async function setupAdminUser() {
   }
 
   try {
-    const [existingUsers] = await dbConnection.execute(
-      "SELECT id, password_hash, admin FROM users WHERE email = ?",
-      [ADMIN_EMAIL]
-    );
-
+    // Use DB adapter helpers to find and create/update admin user
+    const existing = await db.getUserByEmail(ADMIN_EMAIL);
     const passwordHash = encryptPassword(ADMIN_PASSWORD, encryptionKey);
 
-    if (existingUsers.length > 0) {
-      const user = existingUsers[0];
-      let needsUpdate = user.admin !== "yes" || !user.password_hash;
-
-      if (user.password_hash) {
-        const decrypted = decryptPassword(user.password_hash, encryptionKey);
-        if (decrypted !== ADMIN_PASSWORD) {
-          needsUpdate = true;
-        }
+    if (existing) {
+      let needsUpdate = existing.admin !== "yes" || !existing.password_hash;
+      if (existing.password_hash) {
+        const decrypted = decryptPassword(
+          existing.password_hash,
+          encryptionKey
+        );
+        if (decrypted !== ADMIN_PASSWORD) needsUpdate = true;
       }
 
       if (needsUpdate) {
-        await dbConnection.execute(
-          "UPDATE users SET password_hash = ?, admin = 'yes', pwdLogin = true, account_status = 'active' WHERE id = ?",
-          [passwordHash, user.id]
-        );
+        await db.updateUserById(existing.id, {
+          password_hash: passwordHash,
+          admin: "yes",
+          pwdLogin: true,
+          account_status: "active",
+        });
         console.log(`✅ Updated existing admin user: ${ADMIN_EMAIL}`);
       } else {
         console.log(`✅ Admin user already configured: ${ADMIN_EMAIL}`);
       }
     } else {
-      await dbConnection.execute(
-        `INSERT INTO users (email, password_hash, first_name, last_name, admin, pwdLogin, account_status)
-         VALUES (?, ?, ?, ?, 'yes', true, 'active')`,
-        [ADMIN_EMAIL, passwordHash, "Admin", "User"]
-      );
+      await db.createUser({
+        email: ADMIN_EMAIL,
+        password_hash: passwordHash,
+        first_name: "Admin",
+        last_name: "User",
+        admin: "yes",
+        pwdLogin: true,
+        account_status: "active",
+      });
       console.log(`✅ Inserted admin user: ${ADMIN_EMAIL}`);
     }
   } catch (error) {
@@ -542,13 +644,16 @@ async function runTests() {
     testData.userToken = await testUserLogin();
 
     // Create public ReachMe page using user token
-    await createPublicReachMe();
+    const code = await createPublicReachMe();
+    if (!code) throw new Error("Failed to create public ReachMe page");
 
-    // Test public ReachMe page (test mode)
-    await testPublicReachMePage();
+    // Test public ReachMe page (test mode) - must return user email (or resolve to it)
+    const okPublic = await testPublicReachMePage();
+    if (!okPublic) throw new Error("Public ReachMe page test failed");
 
-    // Test sending a real message
-    await testSendMessage();
+    // Test sending a real message and verifying persistence
+    const okMessage = await testSendMessage();
+    if (!okMessage) throw new Error("Message persistence test failed");
 
     console.log("\n" + "=".repeat(50));
     console.log("📊 Test Summary");
@@ -572,6 +677,13 @@ async function runTests() {
     console.error(error.stack);
     process.exit(1);
   } finally {
+    try {
+      // Cleanup test user data to make tests repeatable
+      await cleanupTestUser();
+    } catch (e) {
+      console.warn("Cleanup during finally failed:", e.message);
+    }
+
     await closeDB();
   }
 }

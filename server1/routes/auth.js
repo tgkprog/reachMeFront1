@@ -39,27 +39,17 @@ passport.use(
     },
     async (req, accessToken, refreshToken, profile, done) => {
       try {
-        const { getDB } = require("../db/connection");
-        const db = getDB();
+        const db = require("../src/db");
 
         const googleEmail = profile.emails[0].value;
 
-        // Search for user by Google OAuth email
-        const [users] = await db.execute(
-          `SELECT id, email, first_name, last_name, account_status, googleOauth, USER_GOOGLE_EMAIL
-           FROM users 
-           WHERE USER_GOOGLE_EMAIL = ? 
-           LIMIT 1`,
-          [googleEmail]
-        );
-
-        if (users.length === 0) {
+        // Search for user by Google OAuth email via adapter
+        const user = await db.getUserByGoogleEmail(googleEmail);
+        if (!user) {
           return done(null, false, {
             message: "No account found with this Google email",
           });
         }
-
-        const user = users[0];
 
         // Check if Google OAuth is enabled for this user
         if (!user.googleOauth) {

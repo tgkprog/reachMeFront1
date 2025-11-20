@@ -1,11 +1,11 @@
 const fs = require("fs").promises;
 const path = require("path");
-const { getDB } = require("./connection");
+const db = require("../src/db");
 const { encryptPassword, decryptPassword } = require("../utils/crypto");
 
 async function seedAdminUsers() {
   try {
-    const db = getDB();
+    // using src/db adapter
     const encryptionKey = process.env.ENCRYPTION_KEY || "dfJKDF98034DF";
 
     if (!process.env.ENCRYPTION_KEY) {
@@ -38,16 +38,13 @@ async function seedAdminUsers() {
         continue;
       }
 
-      const [existingUsers] = await db.execute(
-        "SELECT id, password_hash, admin, pwdLogin FROM users WHERE email = ?",
-        [email]
-      );
+      const existingUser = await db.getUserByEmail(email);
 
       const passwordHash = encryptPassword(password, encryptionKey);
 
       if (existingUsers.length > 0) {
         // User exists, check if password needs update
-        const user = existingUsers[0];
+        const user = existingUser;
         const decryptedPassword = user.password_hash
           ? decryptPassword(user.password_hash, encryptionKey)
           : null;
@@ -56,10 +53,11 @@ async function seedAdminUsers() {
 
         if (!passwordMatches) {
           // Password mismatch (likely due to key change) - update stored hash
-          await db.execute(
-            "UPDATE users SET password_hash = ?, admin = 'yes', pwdLogin = true WHERE id = ?",
-            [passwordHash, user.id]
-          );
+          await db.updateUserById(user.id, {
+            password_hash: passwordHash,
+            admin: "yes",
+            pwdLogin: true,
+          });
           console.log(`Updated admin user password: ${email}`);
         } else if (user.admin !== "yes" || !user.pwdLogin) {
           console.warn(
@@ -68,11 +66,15 @@ async function seedAdminUsers() {
         }
       } else {
         // User does not exist, insert new user
-        await db.execute(
-          `INSERT INTO users (email, password_hash, first_name, last_name, admin, pwdLogin, account_status) 
-           VALUES (?, ?, ?, ?, 'yes', true, 'active')`,
-          [email, passwordHash, "Admin", "User"]
-        );
+        await db.createUser({
+          email,
+          password_hash: passwordHash,
+          first_name: "Admin",
+          last_name: "User",
+          admin: "yes",
+          pwdLogin: true,
+          account_status: "active",
+        });
         console.log(`Inserted new admin user: ${email}`);
       }
       usersProcessed++;

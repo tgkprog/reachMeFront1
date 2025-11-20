@@ -44,6 +44,18 @@ const router = createRouter({
       component: () => import("@/views/ReachMeView.vue"),
       meta: { requiresAuth: true },
     },
+    {
+      path: "/reachme/add-public",
+      name: "AddPublicReachMe",
+      component: () => import("@/views/AddPublicReachMeView.vue"),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: "/reachme/view-public",
+      name: "ViewPublicReachMes",
+      component: () => import("@/views/ViewPublicReachMesView.vue"),
+      meta: { requiresAuth: true },
+    },
   ],
 });
 

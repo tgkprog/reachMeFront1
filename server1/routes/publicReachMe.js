@@ -5,7 +5,7 @@
 
 const express = require("express");
 const router = express.Router();
-const { getDB } = require("../db/connection");
+const db = require("../src/db");
 const publicReachMeCache = require("../utils/cache");
 const {
   generateUniqueCode,
@@ -46,25 +46,43 @@ router.post("/create", authenticateToken, async (req, res) => {
     const { deactivateAt } = req.body;
     const userId = req.user.id || req.user.userId;
 
-    if (!userId) {
-      return res.status(400).json({ error: "User ID not found in token" });
+    // Check if the user is an admin
+    const isAdmin = req.user.roles && req.user.roles.includes("admin");
+
+    // Determine the target user ID
+    const targetUserId = isAdmin && req.body.userId ? req.body.userId : userId;
+
+    if (!isAdmin && reachMe.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to perform this action.",
+      });
     }
 
-    const db = getDB();
+    // using src/db adapter
 
-    // Check how many active public reachmes the user has
-    const maxAllowed = parseInt(process.env.MAX_PUBLIC_REACHMES || "15", 10);
-    const [countRows] = await db.execute(
-      "SELECT COUNT(*) as count FROM pblcRechms WHERE user_id = ? AND is_active = TRUE",
-      [userId]
+    // Check total and active limits
+    const PUBLIC_REACHMES_MAX_TOTAL = parseInt(
+      process.env.PUBLIC_REACHMES_MAX_TOTAL || "35",
+      10
     );
 
-    const activeCount = countRows[0].count;
-    if (activeCount >= maxAllowed) {
+    const { totalCount, activeCount } = await db.getPublicReachMeCounts(
+      targetUserId
+    );
+
+    if (totalCount >= PUBLIC_REACHMES_MAX_TOTAL) {
       return res.status(400).json({
-        error: `Maximum active public ReachMe URLs reached (${maxAllowed}). Please deactivate some before creating new ones.`,
-        maxAllowed,
-        currentActive: activeCount,
+        success: false,
+        message: `You have reached the maximum total limit of ${PUBLIC_REACHMES_MAX_TOTAL} public Reach Mes.`,
+      });
+    }
+
+    if (activeCount >= parseInt(process.env.MAX_PUBLIC_REACHMES || "15", 10)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "You have reached the maximum active limit of public Reach Mes.",
       });
     }
 
@@ -80,21 +98,30 @@ router.post("/create", authenticateToken, async (req, res) => {
     const urlCode = await generateUniqueCode(db);
 
     // Insert into database
-    const [result] = await db.execute(
-      `INSERT INTO pblcRechms (user_id, url_code, is_active, deactivate_at) 
-       VALUES (?, ?, TRUE, ?)`,
-      [userId, urlCode, deactivateAt || null]
+    const publicReachMeId = await db.createPublicReachMe(
+      targetUserId,
+      urlCode,
+      deactivateAt || null
     );
 
-    const publicReachMeId = result.insertId;
-
     // Add to cache
+    // Fetch user email to store in cache so test responses can return it immediately
+    let createdUserEmail = null;
+    try {
+      const user = await db.getUserById(targetUserId);
+      createdUserEmail = user ? user.email : null;
+    } catch (e) {
+      createdUserEmail = null;
+    }
+
     publicReachMeCache.set(urlCode, {
-      userId,
+      userId: targetUserId,
       publicReachMeId,
       isActive: true,
       deactivateAt,
     });
+    const cached = publicReachMeCache.get(urlCode);
+    if (cached) cached.userEmail = createdUserEmail;
 
     res.json({
       success: true,
@@ -102,6 +129,7 @@ router.post("/create", authenticateToken, async (req, res) => {
       publicReachMeId,
       url: `/r/${urlCode}/`,
       fullUrl: `${req.protocol}://${req.get("host")}/r/${urlCode}/`,
+      userEmail: createdUserEmail,
       isActive: true,
       deactivateAt: deactivateAt || null,
       createdAt: new Date().toISOString(),
@@ -121,19 +149,14 @@ router.post("/deactivate/:urlCode", authenticateToken, async (req, res) => {
     const { urlCode } = req.params;
     const userId = req.user.id || req.user.userId;
 
-    const db = getDB();
+    // using src/db adapter
 
     // Check ownership
-    const [rows] = await db.execute(
-      "SELECT id, user_id, is_active FROM pblcRechms WHERE url_code = ?",
-      [urlCode]
-    );
+    const publicReachMe = await db.getPublicReachMeByCode(urlCode);
 
-    if (rows.length === 0) {
+    if (!publicReachMe) {
       return res.status(404).json({ error: "Public ReachMe URL not found" });
     }
-
-    const publicReachMe = rows[0];
 
     if (publicReachMe.user_id !== userId) {
       return res.status(403).json({ error: "You do not own this URL" });
@@ -144,10 +167,7 @@ router.post("/deactivate/:urlCode", authenticateToken, async (req, res) => {
     }
 
     // Deactivate in database
-    await db.execute(
-      "UPDATE pblcRechms SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE url_code = ?",
-      [urlCode]
-    );
+    await db.deactivatePublicReachMeByCode(urlCode);
 
     // Deactivate in cache
     publicReachMeCache.deactivate(urlCode);
@@ -176,19 +196,14 @@ router.put(
       const { deactivateAt } = req.body;
       const userId = req.user.id || req.user.userId;
 
-      const db = getDB();
+      // using src/db adapter
 
       // Get current data
-      const [rows] = await db.execute(
-        "SELECT id, user_id, is_active, deactivate_at FROM pblcRechms WHERE url_code = ?",
-        [urlCode]
-      );
+      const publicReachMe = await db.getPublicReachMeByCode(urlCode);
 
-      if (rows.length === 0) {
+      if (!publicReachMe) {
         return res.status(404).json({ error: "Public ReachMe URL not found" });
       }
-
-      const publicReachMe = rows[0];
 
       if (publicReachMe.user_id !== userId) {
         return res.status(403).json({ error: "You do not own this URL" });
@@ -210,10 +225,7 @@ router.put(
       }
 
       // Update in database
-      await db.execute(
-        "UPDATE pblcRechms SET deactivate_at = ?, updated_at = CURRENT_TIMESTAMP WHERE url_code = ?",
-        [deactivateAt || null, urlCode]
-      );
+      await db.updatePublicReachMeDeactivateAt(urlCode, deactivateAt || null);
 
       // Update in cache
       publicReachMeCache.updateDeactivateAt(urlCode, deactivateAt);
@@ -238,15 +250,9 @@ router.put(
 router.get("/list", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    const db = getDB();
+    // using src/db adapter
 
-    const [rows] = await db.execute(
-      `SELECT id, url_code, is_active, deactivate_at, created_at, updated_at 
-       FROM pblcRechms 
-       WHERE user_id = ? 
-       ORDER BY created_at DESC`,
-      [userId]
-    );
+    const rows = await db.listPublicReachMesForUser(userId);
 
     const urls = rows.map((row) => ({
       id: row.id,
@@ -301,22 +307,14 @@ router.post("/user/reach", async (req, res) => {
         .json({ status: "error", error: "Message is required" });
     }
 
-    const db = getDB();
+    // using src/db adapter
 
     // Look up the URL by token (urlCode)
-    const [rows] = await db.execute(
-      `SELECT p.id, p.user_id, p.is_active, u.email as user_email 
-       FROM pblcRechms p 
-       JOIN users u ON p.user_id = u.id 
-       WHERE p.url_code = ?`,
-      [token]
-    );
+    const urlData = await db.getPublicReachMeByCode(token);
 
-    if (rows.length === 0) {
+    if (!urlData) {
       return res.status(404).json({ status: "error", error: "Invalid token" });
     }
-
-    const urlData = rows[0];
 
     // Check if active
     if (!urlData.is_active) {
@@ -341,22 +339,16 @@ router.post("/user/reach", async (req, res) => {
       },
     };
 
-    await db.execute(
-      `INSERT INTO reach_me_messages 
-       (user_id, public_reachme_id, message, datetime_alarm, sender_info, 
-        reached_client, sent_details, auto_deactivate_at) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        urlData.user_id,
-        urlData.id,
-        message,
-        datetimeAlarm,
-        JSON.stringify({ relationship, name, email, phone, actionType }),
-        false, // reached_client
-        JSON.stringify(sentDetails),
-        autoDeactivateAt,
-      ]
-    );
+    await db.insertReachMessage({
+      user_id: urlData.user_id,
+      public_reachme_id: urlData.id,
+      message,
+      datetime_alarm: datetimeAlarm,
+      sender_info: { relationship, name, email, phone, actionType },
+      reached_client: false,
+      sent_details: sentDetails,
+      auto_deactivate_at: autoDeactivateAt,
+    });
 
     res.json({
       status: "ok",
@@ -388,33 +380,55 @@ router.post("/:urlCode/", async (req, res) => {
     // Check cache first
     let urlData = publicReachMeCache.get(urlCode);
 
+    // If cache entry exists but lacks userEmail, fetch it so test responses can return the email directly
+    if (urlData && !urlData.userEmail) {
+      try {
+        const user = await db.getUserById(urlData.userId);
+        urlData.userEmail = user ? user.email : null;
+      } catch (e) {
+        urlData.userEmail = null;
+      }
+    }
+
     // If not in cache, check database
     if (!urlData) {
-      const db = getDB();
-      const [rows] = await db.execute(
-        `SELECT p.id, p.user_id, p.is_active, p.deactivate_at, u.email 
-         FROM pblcRechms p 
-         JOIN users u ON p.user_id = u.id 
-         WHERE p.url_code = ?`,
-        [urlCode]
-      );
+      // using src/db adapter
+      const urlRow = await db.getPublicReachMeByCode(urlCode);
 
-      if (rows.length === 0) {
+      if (!urlRow) {
         return res
           .status(404)
           .json({ status: "error", error: "Invalid ReachMe URL" });
       }
 
+      // Ensure we have the user's email available
+      let userEmail = urlRow.user_email;
+      if (!userEmail) {
+        try {
+          const user = await db.getUserById(urlRow.user_id);
+          userEmail = user ? user.email : null;
+        } catch (e) {
+          userEmail = null;
+        }
+      }
+
       urlData = {
-        publicReachMeId: rows[0].id,
-        userId: rows[0].user_id,
-        userEmail: rows[0].email,
-        isActive: Boolean(rows[0].is_active),
-        deactivateAt: rows[0].deactivate_at,
+        publicReachMeId: urlRow.id,
+        userId: urlRow.user_id,
+        userEmail: userEmail,
+        isActive: Boolean(urlRow.is_active),
+        deactivateAt: urlRow.deactivate_at,
       };
 
-      // Add to cache
-      publicReachMeCache.set(urlCode, urlData);
+      // Add to cache (cache stores core fields; attach userEmail to cached object)
+      publicReachMeCache.set(urlCode, {
+        userId: urlData.userId,
+        publicReachMeId: urlData.publicReachMeId,
+        isActive: urlData.isActive,
+        deactivateAt: urlData.deactivateAt,
+      });
+      const cached = publicReachMeCache.get(urlCode);
+      if (cached) cached.userEmail = urlData.userEmail || null;
     }
 
     // Check if active
@@ -427,28 +441,25 @@ router.post("/:urlCode/", async (req, res) => {
 
     // Test mode: just return user email without creating alarm
     if (isTest) {
+      // Return the user's email directly for test responses (keep userId for legacy compatibility)
       return res.status(200).json({
         status: "test",
+        userEmail: urlData.userEmail || null,
         userId: urlData.userEmail || urlData.userId,
       });
     }
 
     // Create alarm/message
-    const db = getDB();
+    // using src/db adapter
     const datetimeAlarm = new Date();
 
-    await db.execute(
-      `INSERT INTO reach_me_messages 
-       (user_id, public_reachme_id, message, datetime_alarm, sender_info) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        urlData.userId,
-        urlData.publicReachMeId,
-        message,
-        datetimeAlarm,
-        JSON.stringify(senderInfo || {}),
-      ]
-    );
+    await db.insertReachMessage({
+      user_id: urlData.userId,
+      public_reachme_id: urlData.publicReachMeId,
+      message,
+      datetime_alarm: datetimeAlarm,
+      sender_info: senderInfo || {},
+    });
 
     res.json({ status: "ok" });
   } catch (error) {
@@ -471,24 +482,18 @@ router.get("/:urlCode/", async (req, res) => {
     let urlData = publicReachMeCache.get(urlCode);
 
     if (!urlData) {
-      const db = getDB();
-      const [rows] = await db.execute(
-        `SELECT p.id, p.user_id, p.is_active, u.email 
-         FROM pblcRechms p 
-         JOIN users u ON p.user_id = u.id 
-         WHERE p.url_code = ?`,
-        [urlCode]
-      );
+      // using src/db adapter
+      const urlRow = await db.getPublicReachMeByCode(urlCode);
 
-      if (rows.length === 0) {
+      if (!urlRow) {
         return res.status(404).send("Invalid ReachMe URL");
       }
 
       urlData = {
-        publicReachMeId: rows[0].id,
-        userId: rows[0].user_id,
-        userEmail: rows[0].email,
-        isActive: Boolean(rows[0].is_active),
+        publicReachMeId: urlRow.id,
+        userId: urlRow.user_id,
+        userEmail: urlRow.user_email || urlRow.userId,
+        isActive: Boolean(urlRow.is_active),
       };
 
       publicReachMeCache.set(urlCode, urlData);
@@ -514,6 +519,126 @@ router.get("/:urlCode/", async (req, res) => {
   } catch (error) {
     console.error("Error displaying contact form:", error);
     res.status(500).send("Error loading contact form");
+  }
+});
+
+/**
+ * PATCH /public-reachme/edit
+ * Edit public Reach Me (activate/deactivate and set deactivation time)
+ */
+router.patch("/edit", authenticateToken, async (req, res) => {
+  const userId = req.user.id || req.user.userId;
+  const { id, isActive, deactivateAt } = req.body;
+  // using src/db adapter
+
+  console.log("PATCH /public-reachme/edit - Request:", {
+    userId,
+    id,
+    isActive,
+    deactivateAt,
+  });
+
+  try {
+    // Check if the Reach Me exists and belongs to the user
+    const reachMe = await db.getPublicReachMeById(id, userId);
+
+    if (!reachMe) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Public Reach Me not found." });
+    }
+
+    // Check if the user is an admin
+    const isAdmin = req.user.roles && req.user.roles.includes("admin");
+
+    // Determine the target user ID
+    const targetUserId = isAdmin && req.body.userId ? req.body.userId : userId;
+
+    if (!isAdmin && targetUserId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to perform this action.",
+      });
+    }
+
+    // If activating, check the active limit
+    if (isActive && !reachMe.is_active) {
+      // Only check limit if currently inactive and trying to activate
+      const { activeCount } = await db.getPublicReachMeCounts(targetUserId);
+
+      if (
+        activeCount >= parseInt(process.env.MAX_PUBLIC_REACHMES || "15", 10)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "You have reached the maximum active limit of public Reach Mes.",
+        });
+      }
+    }
+
+    // Build update query dynamically based on provided fields
+    const updateFields = [];
+    const updateValues = [];
+
+    if (typeof isActive !== "undefined") {
+      updateFields.push("is_active = ?");
+      updateValues.push(isActive);
+    }
+
+    if (typeof deactivateAt !== "undefined") {
+      updateFields.push("deactivate_at = ?");
+      updateValues.push(deactivateAt === null ? null : deactivateAt);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No fields to update.",
+      });
+    }
+
+    // Add WHERE clause values
+    updateValues.push(userId, id);
+
+    console.log(
+      "Update query:",
+      `UPDATE pblcRechms SET ${updateFields.join(
+        ", "
+      )} WHERE id = ? AND user_id = ?`
+    );
+    console.log("Update values:", updateValues);
+
+    // Update the Reach Me
+    await db.updatePublicReachMeById(id, userId, {
+      is_active: typeof isActive !== "undefined" ? isActive : undefined,
+      deactivate_at:
+        typeof deactivateAt !== "undefined" ? deactivateAt : undefined,
+    });
+
+    // Update cache
+    const urlCode = reachMe.url_code;
+    if (isActive) {
+      publicReachMeCache.set(urlCode, {
+        userId: userId,
+        publicReachMeId: id,
+        isActive: true,
+        deactivateAt: deactivateAt || null,
+      });
+    } else if (typeof isActive !== "undefined" && !isActive) {
+      // Remove from cache if deactivating
+      publicReachMeCache.delete(urlCode);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Public Reach Me updated successfully.",
+    });
+  } catch (error) {
+    console.error("Error editing public Reach Me:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to edit public Reach Me" });
   }
 });
 

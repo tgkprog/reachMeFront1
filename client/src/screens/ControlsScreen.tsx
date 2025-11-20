@@ -1,8 +1,8 @@
-import React, {useEffect, useState, useRef} from 'react';
+import React, {useEffect, useState} from 'react';
 import {View, Text, StyleSheet, Button, Alert, ScrollView, Platform} from 'react-native';
 import {Picker} from '@react-native-picker/picker';
 import {StorageService} from '../services/StorageService';
-import {PollService} from '../services/PollService';
+import {pollManager} from '../services/PollManager';
 import {AuthService} from '../services/AuthService';
 import {NativeBridge} from '../native/NativeBridge';
 import {config} from '../config';
@@ -22,29 +22,20 @@ const ControlsScreen: React.FC<Props> = ({navigation}) => {
   const [pollSeconds, setPollSeconds] = useState(30);
 
   const authService = new AuthService();
-  const pollServiceRef = useRef<PollService | null>(null);
 
   useEffect(() => {
-    loadSettingsAndStartPolling();
+    loadSettingsAndEnsurePolling();
     startForegroundService();
-    return () => {
-      pollServiceRef.current?.stopPolling();
-    };
+    return () => {};
   }, []);
 
-  const loadSettingsAndStartPolling = async () => {
+  const loadSettingsAndEnsurePolling = async () => {
     const settings = await StorageService.getPollSettings();
     if (settings) {
       setPollMinutes(settings.minutes);
       setPollSeconds(settings.seconds);
     }
-    const deviceId = await StorageService.getDeviceId();
-    const ps = new PollService(deviceId);
-    pollServiceRef.current = ps;
-    const intervalSeconds = settings
-      ? settings.minutes * 60 + settings.seconds
-      : pollSeconds + pollMinutes * 60;
-    await ps.startPolling(intervalSeconds * 1000);
+    await pollManager.ensureRunning();
     // Web notification permission request
     if (
       config.features.webNotifications &&
@@ -78,14 +69,8 @@ const ControlsScreen: React.FC<Props> = ({navigation}) => {
   };
 
   const handlePollUpdate = async () => {
-    await StorageService.savePollSettings(pollMinutes, pollSeconds);
+    await pollManager.updateInterval(pollMinutes, pollSeconds);
     Alert.alert('Success', `Poll interval updated to ${pollMinutes}m ${pollSeconds}s`);
-    const ps = pollServiceRef.current;
-    if (ps) {
-      ps.stopPolling();
-      const intervalSeconds = pollMinutes * 60 + pollSeconds;
-      await ps.startPolling(intervalSeconds * 1000);
-    }
   };
 
   const checkPermissions = async () => {
@@ -121,6 +106,7 @@ const ControlsScreen: React.FC<Props> = ({navigation}) => {
         text: 'Logout',
         onPress: async () => {
           await authService.logout(false);
+          await pollManager.stop();
           await NativeBridge.stopForegroundService();
           navigation.replace('Login');
         },
@@ -201,15 +187,24 @@ const ControlsScreen: React.FC<Props> = ({navigation}) => {
         <Button title="Update Poll Interval" onPress={handlePollUpdate} />
       </View>
 
-      {/* Menu */}
-      <View style={styles.section}>
-        <Button title="About" onPress={() => navigation.navigate('About')} />
-        <View style={{marginVertical: 5}} />
-        <Button title="Alarms History" onPress={() => navigation.navigate('Alarms')} />
-        <View style={{marginVertical: 5}} />
-        <Button title="Check All Permissions" onPress={checkPermissions} />
-        <View style={{marginVertical: 5}} />
-        <Button title="Logout" onPress={handleLogout} color="red" />
+      {/* Menu - mobile-first, responsive button grid */}
+      <View style={styles.menuGrid}>
+        <View style={styles.menuRow}>
+          <View style={styles.menuButton}>
+            <Button title="About" onPress={() => navigation.navigate('About')} />
+          </View>
+          <View style={styles.menuButton}>
+            <Button title="Alarms History" onPress={() => navigation.navigate('Alarms')} />
+          </View>
+        </View>
+        <View style={styles.menuRow}>
+          <View style={styles.menuButton}>
+            <Button title="Check All Permissions" onPress={checkPermissions} />
+          </View>
+          <View style={styles.menuButton}>
+            <Button title="Logout" onPress={handleLogout} color="red" />
+          </View>
+        </View>
       </View>
     </ScrollView>
   );
@@ -236,6 +231,25 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
+    marginBottom: 10,
+  },
+  menuGrid: {
+    marginBottom: 25,
+    padding: 15,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    flexDirection: 'column',
+    gap: 10,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  menuButton: {
+    flexBasis: '48%',
+    minWidth: 120,
     marginBottom: 10,
   },
   row: {

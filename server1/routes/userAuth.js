@@ -7,7 +7,7 @@ const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const { getDB } = require("../db/connection");
+const db = require("../src/db");
 
 /**
  * Decrypt password using AES-256-CBC (matching admin encryption)
@@ -100,7 +100,7 @@ router.post("/create", async (req, res) => {
       });
     }
 
-    const db = getDB();
+    // using src/db adapter
     const encryptionKey = process.env.ENCRYPTION_KEY || "dfJKDF98034DF";
 
     if (!process.env.ENCRYPTION_KEY) {
@@ -110,12 +110,8 @@ router.post("/create", async (req, res) => {
     }
 
     // Check if user already exists
-    const [existing] = await db.execute(
-      "SELECT id FROM users WHERE email = ?",
-      [email]
-    );
-
-    if (existing.length > 0) {
+    const existingUser = await db.getUserByEmail(email);
+    if (existingUser) {
       return res.status(409).json({
         success: false,
         error: "User with this email already exists",
@@ -124,12 +120,8 @@ router.post("/create", async (req, res) => {
 
     // Check if Google email is already in use
     if (googleEmail) {
-      const [existingGoogle] = await db.execute(
-        "SELECT id FROM users WHERE USER_GOOGLE_EMAIL = ?",
-        [googleEmail]
-      );
-
-      if (existingGoogle.length > 0) {
+      const existingGoogle = await db.getUserByGoogleEmail(googleEmail);
+      if (existingGoogle) {
         return res.status(409).json({
           success: false,
           error: "This Google email is already associated with another user",
@@ -143,31 +135,17 @@ router.post("/create", async (req, res) => {
       passwordHash = encryptPassword(password, encryptionKey);
     }
 
-    // Insert user into database
-    const [result] = await db.execute(
-      `INSERT INTO users (
-        email, 
-        password_hash, 
-        pwdLogin, 
-        googleOauth, 
-        USER_GOOGLE_EMAIL,
-        first_name,
-        last_name,
-        account_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        email,
-        passwordHash,
-        pwdLogin || false,
-        googleOauth || false,
-        googleEmail || null,
-        firstName,
-        lastName,
-        accountStatus || "active",
-      ]
-    );
-
-    const userId = result.insertId;
+    // Create user via adapter
+    const userId = await db.createUser({
+      email,
+      password_hash: passwordHash,
+      pwdLogin: pwdLogin || false,
+      googleOauth: googleOauth || false,
+      googleEmail: googleEmail || null,
+      first_name: firstName,
+      last_name: lastName,
+      account_status: accountStatus || "active",
+    });
 
     res.status(201).json({
       success: true,
@@ -207,7 +185,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const db = getDB();
+    // using src/db adapter
     const encryptionKey = process.env.ENCRYPTION_KEY || "dfJKDF98034DF";
 
     if (!process.env.ENCRYPTION_KEY) {
@@ -217,22 +195,14 @@ router.post("/login", async (req, res) => {
     }
 
     // Search for user by primary email
-    const [users] = await db.execute(
-      `SELECT id, email, password_hash, pwdLogin, first_name, last_name, account_status, admin 
-       FROM users 
-       WHERE email = ? 
-       LIMIT 1`,
-      [email]
-    );
+    const user = await db.getUserByEmail(email);
 
-    if (users.length === 0) {
+    if (!user) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
       });
     }
-
-    const user = users[0];
 
     // Check if password login is enabled for this user
     if (!user.pwdLogin) {
@@ -370,24 +340,16 @@ function authenticateUser(req, res, next) {
  */
 router.get("/me", authenticateUser, async (req, res) => {
   try {
-    const db = getDB();
+    // using src/db adapter
 
-    const [users] = await db.execute(
-      `SELECT id, email, first_name, last_name, account_status, pwdLogin, googleOauth, USER_GOOGLE_EMAIL
-       FROM users 
-       WHERE id = ? 
-       LIMIT 1`,
-      [req.user.userId]
-    );
+    const user = await db.getUserById(req.user.userId);
 
-    if (users.length === 0) {
+    if (!user) {
       return res.status(404).json({
         success: false,
         error: "User not found",
       });
     }
-
-    const user = users[0];
 
     res.json({
       success: true,

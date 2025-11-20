@@ -35,9 +35,11 @@
     "mysql2": "^3.6.5",
     "node-cron": "^3.0.3",
     "passport": "^0.7.0",
-    "passport-google-oauth20": "^2.0.0"
+    "passport-google-oauth20": "^2.0.0",
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
   }
+  
 }

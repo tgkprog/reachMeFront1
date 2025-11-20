@@ -94,7 +94,34 @@ export class AuthService {
     return user !== null;
   }
 
-  async getCurrentUser(): Promise<User | null> {
-    return await StorageService.getUser();
+  async register(email: string, password: string, firstName: string, lastName: string): Promise<{user: User; token?: string}> {
+    try {
+      const response = await this.api.post('/api/user/register', {email, password, firstName, lastName});
+      const data = response.data || {};
+      if (data.success === false) {
+        throw new Error(data.message || 'Registration failed');
+      }
+      const user: User = {
+        email: data.user.email || email,
+        firstName: data.user.firstName || firstName,
+        lastName: data.user.lastName || lastName,
+        photoUrl: data.user.photoUrl,
+      };
+      return {user, token: data.token};
+    } catch (error: any) {
+      console.error('Registration failed:', error);
+      throw error;
+    }
   }
-}
+
+  async forgotPassword(email: string): Promise<void> {
+    try {
+      const response = await this.api.post('/api/user/forgot-password', {email});
+      if (response.data.success === false) {
+        throw new Error(response.data.message || 'Forgot password failed');
+      }
+    } catch (error: any) {
+      console.error('Forgot password failed:', error);
+      throw error;
+    }
+  }

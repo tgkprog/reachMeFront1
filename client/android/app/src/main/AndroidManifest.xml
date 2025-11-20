@@ -1,142 +1,108 @@
-<?xml version="1.0" encoding="utf-8"?><?xml version="1.0" encoding="utf-8"?>
-
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"><manifest xmlns:android="http://schemas.android.com/apk/res/android"
-
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Core permissions -->
-
-    <uses-permission android:name="android.permission.INTERNET"/>    <!-- Permissions -->
-
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>    <uses-permission android:name="android.permission.INTERNET" />
-
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-
-    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
-
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>    <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-
+    <!-- Permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
-    <!-- Exact alarm (Android 12+) -->    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Storage & downloads -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>    <uses-permission android:name="android.permission.VIBRATE" />
-
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <!-- Call control (for future use) -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
+    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
 
     <application
-
-    <!-- Storage & downloads -->        android:name=".ReachMeApplication"
-
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>        android:allowBackup="true"
-
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>        android:dataExtractionRules="@xml/data_extraction_rules"
-
+        android:name=".MainApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-
-    <!-- Call control (for future use) -->        android:icon="@mipmap/ic_launcher"
-
-    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>        android:label="@string/app_name"
-
-    <uses-permission android:name="android.permission.CALL_PHONE"/>        android:roundIcon="@mipmap/ic_launcher_round"
-
-    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS"/>        android:supportsRtl="true"
-
-    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS"/>        android:theme="@style/Theme.ReachMe"
-
-    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS"/>        tools:targetApi="31">
-
-
-
-    <application        <!-- Main Activity -->
-
-      android:name=".MainApplication"        <activity
-
-      android:label="@string/app_name"            android:name=".ui.MainActivity"
-
-      android:icon="@mipmap/ic_launcher"            android:exported="true"
-
-      android:roundIcon="@mipmap/ic_launcher_round"            android:screenOrientation="portrait">
-
-      android:allowBackup="false"            <intent-filter>
-
-      android:theme="@style/AppTheme">                <action android:name="android.intent.action.MAIN" />
-
-                      <category android:name="android.intent.category.LAUNCHER" />
-
-      <activity            </intent-filter>
-
-        android:name=".MainActivity"        </activity>
-
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme"
+        tools:targetApi="31">
 
-        android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"        <!-- Login Activity -->
+        <!-- Main Activity -->
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
-        android:launchMode="singleTask"        <activity
-
-        android:windowSoftInputMode="adjustResize"            android:name=".ui.auth.LoginActivity"
-
-        android:exported="true">            android:exported="false"
-
-        <intent-filter>            android:screenOrientation="portrait" />
-
-            <action android:name="android.intent.action.MAIN" />
-
-            <category android:name="android.intent.category.LAUNCHER" />        <!-- Alarm Receiver -->
-
-        </intent-filter>        <receiver
-
-      </activity>            android:name=".alarm.AlarmReceiver"
-
-            android:enabled="true"
-
-      <!-- Foreground Service -->            android:exported="false" />
-
-      <service
-
-        android:name=".CoreService"        <!-- Alarm Service -->
-
-        android:enabled="true"        <service
-
-        android:exported="false"            android:name=".alarm.AlarmService"
-
-        android:foregroundServiceType="dataSync|mediaPlayback" />            android:enabled="true"
-
+        <!-- Login Activity -->
+        <activity
+            android:name=".ui.auth.LoginActivity"
             android:exported="false"
+            android:screenOrientation="portrait" />
 
-      <!-- Boot Receiver -->            android:foregroundServiceType="mediaPlayback" />
+        <!-- Alarm Receiver -->
+        <receiver
+            android:name=".alarm.AlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
 
-      <receiver
+        <!-- Foreground Service -->
+        <service
+            android:name=".CoreService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|mediaPlayback" />
 
-        android:name=".BootReceiver"        <!-- WorkManager for API Polling -->
+        <!-- Alarm Service -->
+        <service
+            android:name=".alarm.AlarmService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
-        android:enabled="true"        <service
+        <!-- Boot Receiver -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
-        android:exported="true">            android:name="androidx.work.impl.foreground.SystemForegroundService"
+        <!-- WorkManager for API Polling -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
 
-        <intent-filter>            android:foregroundServiceType="dataSync"
-
-          <action android:name="android.intent.action.BOOT_COMPLETED" />            tools:node="merge" />
-
-        </intent-filter>
-
-      </receiver>    </application>
-
-
-
-      <!-- Overlay Activity (fallback if no overlay permission) --></manifest>
-
-      <activity
-        android:name=".OverlayActivity"
-        android:theme="@style/Theme.Translucent"
-        android:excludeFromRecents="true"
-        android:exported="false" />
+        <!-- Overlay Activity (fallback if no overlay permission) -->
+        <activity
+            android:name=".OverlayActivity"
+            android:theme="@style/Theme.Translucent"
+            android:excludeFromRecents="true"
+            android:exported="false" />
     </application>
 
 </manifest>

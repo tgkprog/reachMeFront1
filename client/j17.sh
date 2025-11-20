@@ -1,0 +1,4 @@
+#!/bin/bash
+# Set PATH for Java 17
+export PATH="/home/ubuntu/.config/Code/User/globalStorage/github.copilot-chat/copilotCli:/home/ubuntu/.config/Code/User/globalStorage/github.copilot-chat/debugCommand:/home/ubuntu/.local/bin:/home/ubuntu/.nvm/versions/node/v20.18.2/bin:/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/apps/android/Sdk/emulator:/apps/android/Sdk/platform-tools:/apps/android/Sdk/cmdline-tools/latest/bin:/apps/android/Sdk/tools:/apps/android/Sdk/tools/bin:/apps/android/Sdk/emulator:/apps/android/Sdk/platform-tools:/apps/android/Sdk/cmdline-tools/latest/bin:/apps/android/Sdk/tools:/apps/android/Sdk/tools/bin:/usr/local/bin:/usr/local/go/bin:/home/ubuntu/go/bin:/usr/local/bin:/usr/local/go/bin:/home/ubuntu/go/bin:/usr/lib/jvm/java-17-openjdk-amd64/bin/"
+echo "PATH set for Java 17: $PATH"

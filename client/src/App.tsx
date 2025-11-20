@@ -6,6 +6,9 @@ import LoginScreen from '@screens/LoginScreen';
 import ControlsScreen from '@screens/ControlsScreen';
 import AboutScreen from '@screens/AboutScreen';
 import AlarmsScreen from '@screens/AlarmsScreen';
+import {pollManager} from './services/PollManager';
+import {NativeBridge} from './native/NativeBridge';
+import {Platform} from 'react-native';
 
 const Stack = createStackNavigator();
 
@@ -20,6 +23,17 @@ const App = () => {
   const checkAuthStatus = async () => {
     const loggedIn = await authService.isLoggedIn();
     setIsLoggedIn(loggedIn);
+    if (loggedIn) {
+      try {
+        await pollManager.ensureRunning();
+        if (Platform.OS === 'android') {
+          await NativeBridge.startForegroundService();
+        }
+      } catch (e) {
+        // best-effort; avoid crashing app on startup
+        console.warn('Failed to start global polling', e);
+      }
+    }
   };
 
   if (isLoggedIn === null) {

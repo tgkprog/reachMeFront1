@@ -82,6 +82,231 @@ router.post("/user/check", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/user/register
+ * Register a new user
+ */
+router.post("/user/register", async (req, res) => {
+  try {
+    const { email, password, firstName, lastName } = req.body;
+
+    if (!email || !password || !firstName || !lastName) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    const db = require("../src/db");
+    const encryptionKey = process.env.ENCRYPTION_KEY || "dfJKDF98034DF";
+
+    // Check if user already exists
+    const existing = await db.getUserByEmail(email);
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: "User already exists",
+      });
+    }
+
+    // Encrypt password
+    const crypto = require("crypto");
+    const encryptPassword = (password, encryptionKey) => {
+      const ALGORITHM = "aes-256-cbc";
+      const key = crypto.createHash("sha256").update(encryptionKey).digest();
+      const iv = crypto.randomBytes(16);
+
+      const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+      let encrypted = cipher.update(password, "utf8", "hex");
+      encrypted += cipher.final("hex");
+
+      return iv.toString("hex") + ":" + encrypted;
+    };
+
+    const encryptedPassword = encryptPassword(password, encryptionKey);
+
+    // Create user via adapter
+    const userId = await db.createUser({
+      email,
+      password_hash: encryptedPassword,
+      first_name: firstName,
+      last_name: lastName,
+      pwdLogin: true,
+      account_status: "active",
+    });
+
+    res.json({
+      success: true,
+      message: "User registered successfully",
+      user: {
+        id: userId,
+        email,
+        firstName,
+        lastName,
+      },
+    });
+  } catch (error) {
+    console.error("User registration error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Registration failed",
+    });
+  }
+});
+
+/**
+ * POST /api/user/forgot-password
+ * Send password reset email
+ */
+router.post("/user/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    // TODO: Implement password reset logic
+    // For now, just return success
+    console.log(`Password reset requested for: ${email}`);
+
+    res.json({
+      success: true,
+      message: "If the email exists, a reset link has been sent",
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process request",
+    });
+  }
+});
+
+/**
+ * POST /api/user/passwordLogin
+ * User login with email and password (alias for /user/login)
+ */
+router.post("/user/passwordLogin", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password required",
+      });
+    }
+
+    const db = require("../src/db");
+    const encryptionKey = process.env.ENCRYPTION_KEY || "dfJKDF98034DF";
+
+    // Search for user by primary email
+    const user = await db.getUserByEmail(email);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    // Check if password login is enabled for this user
+    if (!user.pwdLogin) {
+      return res.status(403).json({
+        success: false,
+        message: "Password login is not enabled for this account",
+      });
+    }
+
+    // Check account status
+    if (user.account_status !== "active") {
+      return res.status(403).json({
+        success: false,
+        message: "Account is not active",
+      });
+    }
+
+    // Verify password
+    if (!user.password_hash) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    // Decrypt password using AES-256-CBC
+    const crypto = require("crypto");
+    const decryptPassword = (encryptedData, encryptionKey) => {
+      try {
+        const ALGORITHM = "aes-256-cbc";
+        const key = crypto.createHash("sha256").update(encryptionKey).digest();
+
+        // Split IV and encrypted data
+        const parts = encryptedData.split(":");
+        if (parts.length !== 2) {
+          throw new Error("Invalid encrypted data format");
+        }
+
+        const iv = Buffer.from(parts[0], "hex");
+        const encrypted = parts[1];
+
+        const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+        let decrypted = decipher.update(encrypted, "hex", "utf8");
+        decrypted += decipher.final("utf8");
+
+        return decrypted;
+      } catch (error) {
+        console.error("Error decrypting password:", error.message);
+        return null;
+      }
+    };
+
+    const decryptedPassword = decryptPassword(user.password_hash, encryptionKey);
+    if (!decryptedPassword || decryptedPassword !== password) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    // Generate JWT
+    const jwt = require("jsonwebtoken");
+    const tokenPayload = {
+      userId: user.id,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+    };
+
+    const token = jwt.sign(
+      tokenPayload,
+      process.env.JWT_SECRET || "your-jwt-secret",
+      { expiresIn: process.env.JWT_EXPIRES_IN || "24h" }
+    );
+
+    res.json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+      },
+    });
+  } catch (error) {
+    console.error("User password login error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Login failed",
+    });
+  }
+});
+
 // ===================================
 // Protected Endpoints (Require Authentication)
 // ===================================
@@ -106,32 +331,17 @@ router.get("/check", authenticateToken, async (req, res) => {
 
     // Fetch recent unacknowledged reach_me_messages for this user (limit 10)
     // These become 'alert' commands for the client
-    const { getDB } = require("../db/connection");
-    const db = getDB();
+    const db = require("../src/db");
 
-    // Prefer user_id match; fallback to email join if needed
+    // Prefer user_id match; fallback to email -> userId
     let rows = [];
     if (userId) {
-      const [r] = await db.execute(
-        `SELECT id, message, created_at, sender_info
-         FROM reach_me_messages
-         WHERE user_id = ? AND (is_ack_app IS NULL OR is_ack_app = FALSE)
-         ORDER BY created_at DESC
-         LIMIT 10`,
-        [userId]
-      );
-      rows = r;
+      rows = await db.getRecentUnacknowledgedMessagesForUser(userId, 10);
     } else if (userEmail) {
-      const [r] = await db.execute(
-        `SELECT m.id, m.message, m.created_at, m.sender_info
-         FROM reach_me_messages m
-         JOIN users u ON m.user_id = u.id
-         WHERE u.email = ? AND (m.is_ack_app IS NULL OR m.is_ack_app = FALSE)
-         ORDER BY m.created_at DESC
-         LIMIT 10`,
-        [userEmail]
-      );
-      rows = r;
+      const u = await db.getUserByEmail(userEmail);
+      if (u && u.id) {
+        rows = await db.getRecentUnacknowledgedMessagesForUser(u.id, 10);
+      }
     }
 
     const commands = rows.map((row) => {
@@ -285,24 +495,9 @@ router.post("/device/register", authenticateToken, async (req, res) => {
 router.get("/reachme/messages", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
-    const { getDB } = require("../db/connection");
-    const db = getDB();
+    const db = require("../src/db");
 
-    const [rows] = await db.execute(
-      `SELECT 
-        id, 
-        public_reachme_id, 
-        message, 
-        datetime_alarm, 
-        is_ack_app, 
-        is_ack_all, 
-        sender_info, 
-        created_at 
-       FROM reach_me_messages 
-       WHERE user_id = ? 
-       ORDER BY datetime_alarm DESC`,
-      [userId]
-    );
+    const rows = await db.getMessagesForUser(userId);
 
     const messages = rows.map((row) => ({
       id: row.id,
@@ -338,34 +533,19 @@ router.put(
       const { id } = req.params;
       const { ackType } = req.body; // 'app' or 'all'
       const userId = req.user.id || req.user.userId;
-      const { getDB } = require("../db/connection");
-      const db = getDB();
+      const db = require("../src/db");
 
-      // Verify ownership
-      const [rows] = await db.execute(
-        "SELECT user_id FROM reach_me_messages WHERE id = ?",
-        [id]
-      );
-
-      if (rows.length === 0) {
-        return res.status(404).json({ error: "Message not found" });
-      }
-
-      if (rows[0].user_id !== userId) {
+      // Verify ownership via adapter
+      const msg = await db.getMessageById(id);
+      if (!msg) return res.status(404).json({ error: "Message not found" });
+      if (msg.user_id !== userId)
         return res.status(403).json({ error: "Unauthorized" });
-      }
 
-      // Update acknowledgment
+      // Update acknowledgment via adapter helper
       if (ackType === "app") {
-        await db.execute(
-          "UPDATE reach_me_messages SET is_ack_app = TRUE WHERE id = ?",
-          [id]
-        );
+        await db.acknowledgeMessageById(id, "app");
       } else if (ackType === "all") {
-        await db.execute(
-          "UPDATE reach_me_messages SET is_ack_all = TRUE WHERE id = ?",
-          [id]
-        );
+        await db.acknowledgeMessageById(id, "all");
       } else {
         return res
           .status(400)

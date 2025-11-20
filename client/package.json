@@ -36,6 +36,7 @@
     "react-native-webview": "^13.6.4"
   },
   "devDependencies": {
+    "@react-native-community/cli": "latest",
     "@babel/core": "^7.23.5",
     "@babel/preset-env": "^7.23.5",
     "@babel/runtime": "^7.23.5",

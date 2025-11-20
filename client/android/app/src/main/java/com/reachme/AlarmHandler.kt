@@ -15,6 +15,9 @@ object AlarmHandler {
         stop(context)
 
         try {
+            // Post alarm notification to bypass DND
+            CoreService.postAlarmNotification(context, "ReachMe Alarm", "Critical alert received")
+
             // Set alarm volume to max
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
@@ -65,5 +68,9 @@ object AlarmHandler {
             release()
         }
         mediaPlayer = null
+
+        // Cancel alarm notification
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.cancel(CoreService.ALARM_NOTIFICATION_ID)
     }
 }

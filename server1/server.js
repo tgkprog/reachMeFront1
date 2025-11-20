@@ -95,7 +95,7 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 app.use(cors(corsOptions));
@@ -282,13 +282,8 @@ async function startServer() {
 
     // Load active public ReachMe URLs into cache
     console.log("📦 Loading public ReachMe URLs into cache...");
-    const db = require("./db/connection").getDB();
-    const [rows] = await db.execute(
-      `SELECT p.id, p.user_id, p.url_code, p.is_active, p.deactivate_at, u.email 
-       FROM pblcRechms p 
-       JOIN users u ON p.user_id = u.id 
-       WHERE p.is_active = TRUE`
-    );
+    const db = require("./src/db");
+    const rows = await db.listActivePublicReachMes();
 
     for (const row of rows) {
       publicReachMeCache.set(row.url_code, {

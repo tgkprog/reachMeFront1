@@ -3,7 +3,7 @@
  */
 
 const cron = require("node-cron");
-const { getDB } = require("../db/connection");
+const db = require("../src/db");
 const publicReachMeCache = require("../utils/cache");
 
 /**
@@ -13,29 +13,20 @@ const publicReachMeCache = require("../utils/cache");
 function startDeactivationCron() {
   cron.schedule("* * * * *", async () => {
     try {
-      const db = getDB();
+      // using src/db adapter
       const now = new Date();
 
-      // Find URLs that need to be deactivated
-      const [rows] = await db.execute(
-        `SELECT url_code FROM pblcRechms 
-         WHERE is_active = TRUE 
-         AND deactivate_at IS NOT NULL 
-         AND deactivate_at <= ?`,
-        [now]
-      );
+      // Find URLs that need to be deactivated using adapter helper
+      const rows = await db.findDuePublicReachMes(now);
 
-      if (rows.length > 0) {
+      if (rows && rows.length > 0) {
         console.log(
           `⏰ Deactivating ${rows.length} expired public ReachMe URLs`
         );
 
         for (const row of rows) {
-          // Deactivate in database
-          await db.execute(
-            "UPDATE pblcRechms SET is_active = FALSE WHERE url_code = ?",
-            [row.url_code]
-          );
+          // Deactivate in database via adapter
+          await db.deactivatePublicReachMeByCode(row.url_code);
 
           // Deactivate in cache
           publicReachMeCache.deactivate(row.url_code);
@@ -60,13 +51,8 @@ function startCacheReloadCron() {
     try {
       console.log("🔄 Reloading public ReachMe cache from database");
 
-      const db = getDB();
-      const [rows] = await db.execute(
-        `SELECT p.id, p.user_id, p.url_code, p.is_active, p.deactivate_at, u.email 
-         FROM pblcRechms p 
-         JOIN users u ON p.user_id = u.id 
-         WHERE p.is_active = TRUE`
-      );
+      // Load active public reachmes via adapter helper
+      const rows = await db.listActivePublicReachMes();
 
       // Clear and rebuild cache
       publicReachMeCache.clear();

@@ -67,7 +67,7 @@ object OverlayService {
                 text = "X"
                 setOnClickListener {
                     AlarmHandler.stop(context)
-                    // Keep sticky notification
+                    hide(context)
                 }
             })
 
@@ -85,13 +85,13 @@ object OverlayService {
 
         val dm = context.resources.displayMetrics
         val params = WindowManager.LayoutParams(
-            (dm.widthPixels * 0.35).toInt(),
+            (dm.widthPixels * 0.8).toInt(),
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
             PixelFormat.TRANSLUCENT
         )
-        params.gravity = Gravity.TOP or Gravity.END
+        params.gravity = Gravity.CENTER
 
         windowManager?.addView(overlayView, params)
     }

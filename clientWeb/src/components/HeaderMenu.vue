@@ -1,18 +1,21 @@
 <template>
   <header class="main-header">
+    <img src="/reachmeBanner.png" alt="ReachMe" class="banner-img" />
     <nav class="navigation-menu">
-      <RouterLink
-        v-for="item in menuItems"
-        :key="item.name"
-        :to="item.path"
-        class="nav-link"
-      >
-        {{ item.label }}
-        <span v-if="item.badge && item.badge > 0" class="badge">{{ item.badge }}</span>
-      </RouterLink>
-      <a href="#" @click.prevent="handleLogout" class="nav-link logout-link">
-        Logout
-      </a>
+      <div class="nav-links-wrapper">
+        <RouterLink
+          v-for="item in menuItems"
+          :key="item.name"
+          :to="item.path"
+          class="nav-link"
+        >
+          {{ item.label }}
+          <span v-if="item.badge && item.badge > 0" class="badge">{{ item.badge }}</span>
+        </RouterLink>
+        <a href="#" @click.prevent="handleLogout" class="nav-link logout-link">
+          Logout
+        </a>
+      </div>
     </nav>
   </header>
 </template>
@@ -54,11 +57,20 @@ async function handleLogout() {
   margin-bottom: 2rem;
 }
 
+
 .navigation-menu {
   display: flex;
-  justify-content: center;
-  gap: 1.5rem;
+  flex-direction: column;
   align-items: center;
+}
+
+.nav-links-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: 600px;
 }
 
 .nav-link {
@@ -70,6 +82,10 @@ async function handleLogout() {
   cursor: pointer;
   font-weight: 500;
   position: relative;
+  flex: 1 1 40%;
+  min-width: 120px;
+  max-width: 48%;
+  box-sizing: border-box;
 }
 
 .nav-link:hover:not(.router-link-active) {
@@ -103,14 +119,42 @@ async function handleLogout() {
   font-weight: 600;
 }
 
+
 @media (max-width: 768px) {
-  .navigation-menu {
+  .nav-links-wrapper {
     gap: 0.5rem;
+    max-width: 100%;
   }
-  
   .nav-link {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.9rem;
+    padding: 0.5rem 0.5rem;
+    font-size: 0.95rem;
+    min-width: 48%;
+    max-width: 48%;
+  }
+}
+
+.banner-img {
+  width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+  background: #1f1f1f;
+  padding: 1rem;
+}
+</style>
+
+<style scoped>
+@media (min-width: 769px) {
+  .nav-links-wrapper {
+    flex-wrap: nowrap;
+    gap: 1.5rem;
+    max-width: 100%;
+  }
+  .nav-link {
+    min-width: unset;
+    max-width: unset;
+    flex: unset;
   }
 }
 </style>

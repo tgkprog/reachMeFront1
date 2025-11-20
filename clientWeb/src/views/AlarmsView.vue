@@ -1,9 +1,6 @@
 <template>
   <div class="alarms-container">
-    <img src="/reachmeBanner.png" alt="ReachMe" class="banner-img" />
-
     <h1>Alarm History</h1>
-    
     <div v-if="notificationPermission !== 'granted'" class="notification-banner">
       <p>⚠️ Notifications are blocked. You won't receive real-time alerts.</p>
       <button @click="requestNotificationPermission" class="btn-primary">
@@ -44,7 +41,6 @@ import { ref, onMounted } from 'vue'
 import storage from '@/services/storage'
 import { useAlarmStore } from '@/stores/alarms'
 
-const alarmStore = useAlarmStore()
 const alarmStore = useAlarmStore()
 
 const alarms = ref<any[]>([])
