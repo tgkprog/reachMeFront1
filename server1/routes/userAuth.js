@@ -54,120 +54,16 @@ function encryptPassword(password, encryptionKey) {
 
 /**
  * POST /user/create
- * Create a new user
+ * Deprecated: user creation has moved to the admin API (`/admin/users`).
+ * For backward compatibility we respond with 410 Gone and an explanatory
+ * message so callers will update to the admin endpoint.
  */
-router.post("/create", async (req, res) => {
-  try {
-    const {
-      email,
-      password,
-      pwdLogin,
-      googleOauth,
-      googleEmail,
-      firstName,
-      lastName,
-      accountStatus,
-    } = req.body;
-
-    // Validate required fields
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        error: "Email is required",
-      });
-    }
-
-    if (!firstName || !lastName) {
-      return res.status(400).json({
-        success: false,
-        error: "First name and last name are required",
-      });
-    }
-
-    // Validate password login requirements
-    if (pwdLogin && !password) {
-      return res.status(400).json({
-        success: false,
-        error: "Password is required when pwdLogin is enabled",
-      });
-    }
-
-    // Validate Google OAuth requirements
-    if (googleOauth && !googleEmail) {
-      return res.status(400).json({
-        success: false,
-        error: "Google email is required when googleOauth is enabled",
-      });
-    }
-
-    // using src/db adapter
-    const encryptionKey = process.env.ENCRYPTION_KEY || "dfJKDF98034DF";
-
-    if (!process.env.ENCRYPTION_KEY) {
-      console.warn(
-        "ENCRYPTION_KEY not set in environment; using default seeded value."
-      );
-    }
-
-    // Check if user already exists
-    const existingUser = await db.getUserByEmail(email);
-    if (existingUser) {
-      return res.status(409).json({
-        success: false,
-        error: "User with this email already exists",
-      });
-    }
-
-    // Check if Google email is already in use
-    if (googleEmail) {
-      const existingGoogle = await db.getUserByGoogleEmail(googleEmail);
-      if (existingGoogle) {
-        return res.status(409).json({
-          success: false,
-          error: "This Google email is already associated with another user",
-        });
-      }
-    }
-
-    // Encrypt password if provided
-    let passwordHash = null;
-    if (password) {
-      passwordHash = encryptPassword(password, encryptionKey);
-    }
-
-    // Create user via adapter
-    const userId = await db.createUser({
-      email,
-      password_hash: passwordHash,
-      pwdLogin: pwdLogin || false,
-      googleOauth: googleOauth || false,
-      googleEmail: googleEmail || null,
-      first_name: firstName,
-      last_name: lastName,
-      account_status: accountStatus || "active",
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "User created successfully",
-      user: {
-        id: userId,
-        email,
-        firstName,
-        lastName,
-        pwdLogin: pwdLogin || false,
-        googleOauth: googleOauth || false,
-        googleEmail: googleEmail || null,
-        accountStatus: accountStatus || "active",
-      },
-    });
-  } catch (error) {
-    console.error("User creation error:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to create user",
-    });
-  }
+router.post("/create", (req, res) => {
+  res.status(410).json({
+    success: false,
+    error:
+      "User creation has moved to /admin/users. Please authenticate as an admin and POST to /admin/users",
+  });
 });
 
 /**

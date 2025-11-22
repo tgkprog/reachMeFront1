@@ -160,7 +160,8 @@ app.get("/ping", (req, res) => {
   const version = fs
     .readFileSync(path.join(__dirname, "res", "version.txt"), "utf8")
     .trim();
-  const dateTime = new Date().toLocaleString("en-US", {
+  // UTC timestamp
+  const dateTimeUTC = new Date().toLocaleString("en-US", {
     timeZone: "UTC",
     year: "numeric",
     month: "2-digit",
@@ -171,7 +172,21 @@ app.get("/ping", (req, res) => {
     timeZoneName: "short",
   });
 
-  res.send(`pong ${dateTime} build 001 version ${version}`);
+  // Local server timestamp (uses server's local timezone)
+  const dateTimeLocal = new Date().toLocaleString("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZoneName: "short",
+  });
+
+  // Return UTC timestamp and local server time with timezone, and end with a full stop.
+  res.send(
+    `pong ${dateTimeUTC} build 001 version ${version}. Local: ${dateTimeLocal}.`
+  );
 });
 
 // Test endpoint with addition

@@ -1,9 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../src/db");
-const express = require("express");
-const router = express.Router();
-const db = require("../src/db");
 const { encryptPassword } = require("../utils/crypto");
 const { authenticateUser } = require("./userAuth");
 
@@ -35,32 +32,65 @@ router.post("/users", async (req, res) => {
     } = req.body;
 
     if (!email) {
-      return res.status(400).json({ success: false, message: "Email is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Email is required" });
     }
     if (!firstName || !lastName) {
-      return res.status(400).json({ success: false, message: "First name and last name are required" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "First name and last name are required",
+        });
     }
     if (pwdLogin && !password) {
-      return res.status(400).json({ success: false, message: "Password is required when pwdLogin is enabled" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Password is required when pwdLogin is enabled",
+        });
     }
     if (googleOauth && !googleEmail) {
-      return res.status(400).json({ success: false, message: "Google email is required when googleOauth is enabled" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Google email is required when googleOauth is enabled",
+        });
     }
 
     const encryptionKey = process.env.ENCRYPTION_KEY || "dfJKDF98034DF";
     if (!process.env.ENCRYPTION_KEY) {
-      console.warn("ENCRYPTION_KEY not set in environment; using default seeded value.");
+      console.warn(
+        "ENCRYPTION_KEY not set in environment; using default seeded value."
+      );
     }
 
     // Check uniqueness
     const existing = await db.getUserByEmail(email);
-    if (existing) return res.status(409).json({ success: false, message: "User with this email already exists" });
+    if (existing)
+      return res
+        .status(409)
+        .json({
+          success: false,
+          message: "User with this email already exists",
+        });
     if (googleEmail) {
       const existingGoogle = await db.getUserByGoogleEmail(googleEmail);
-      if (existingGoogle) return res.status(409).json({ success: false, message: "This Google email is already associated with another user" });
+      if (existingGoogle)
+        return res
+          .status(409)
+          .json({
+            success: false,
+            message:
+              "This Google email is already associated with another user",
+          });
     }
 
-    const passwordHash = pwdLogin && password ? encryptPassword(password, encryptionKey) : null;
+    const passwordHash =
+      pwdLogin && password ? encryptPassword(password, encryptionKey) : null;
 
     const newUserId = await db.createUser({
       email,
@@ -100,8 +130,12 @@ router.get("/users", async (req, res) => {
     const statusFilter = req.query.account_status;
     let statuses = [];
     if (statusFilter) {
-      const arr = Array.isArray(statusFilter) ? statusFilter : statusFilter.split(",").map((s) => s.trim());
-      statuses = arr.filter((s) => ["active", "suspended", "deleted"].includes(s));
+      const arr = Array.isArray(statusFilter)
+        ? statusFilter
+        : statusFilter.split(",").map((s) => s.trim());
+      statuses = arr.filter((s) =>
+        ["active", "suspended", "deleted"].includes(s)
+      );
     }
 
     const users = await db.listUsers({ statuses });
@@ -128,27 +162,53 @@ router.get("/users", async (req, res) => {
 router.patch("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { accountStatus, pwdLogin, googleOauth, googleEmail, password } = req.body;
+    const { accountStatus, pwdLogin, googleOauth, googleEmail, password } =
+      req.body;
 
-    if (!id) return res.status(400).json({ success: false, message: "User ID is required" });
+    if (!id)
+      return res
+        .status(400)
+        .json({ success: false, message: "User ID is required" });
 
     const targetUser = await db.getUserById(id);
-    if (!targetUser) return res.status(404).json({ success: false, message: "User not found" });
-    if (targetUser.admin === "yes") return res.status(403).json({ success: false, message: "Cannot modify admin users via this endpoint" });
+    if (!targetUser)
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    if (targetUser.admin === "yes")
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Cannot modify admin users via this endpoint",
+        });
 
     if (typeof googleEmail !== "undefined" && googleEmail) {
       const existingGoogle = await db.getUserByGoogleEmail(googleEmail);
       if (existingGoogle && String(existingGoogle.id) !== String(id)) {
-        return res.status(409).json({ success: false, message: "This Google email is already associated with another user" });
+        return res
+          .status(409)
+          .json({
+            success: false,
+            message:
+              "This Google email is already associated with another user",
+          });
       }
     }
 
     const updates = {
-      account_status: typeof accountStatus !== "undefined" ? accountStatus : undefined,
+      account_status:
+        typeof accountStatus !== "undefined" ? accountStatus : undefined,
       pwdLogin: typeof pwdLogin !== "undefined" ? pwdLogin : undefined,
       googleOauth: typeof googleOauth !== "undefined" ? googleOauth : undefined,
       googleEmail: typeof googleEmail !== "undefined" ? googleEmail : undefined,
-      password_hash: typeof password !== "undefined" && password ? encryptPassword(password, process.env.ENCRYPTION_KEY || 'dfJKDF98034DF') : undefined,
+      password_hash:
+        typeof password !== "undefined" && password
+          ? encryptPassword(
+              password,
+              process.env.ENCRYPTION_KEY || "dfJKDF98034DF"
+            )
+          : undefined,
     };
 
     await db.updateUserById(id, updates);
@@ -171,32 +231,6 @@ router.patch("/users/:id", async (req, res) => {
   } catch (error) {
     console.error("Admin update user error:", error);
     res.status(500).json({ success: false, message: "Failed to update user" });
-  }
-});
-
-module.exports = router;
-    );
-
-    res.json({
-      success: true,
-      message: "User updated successfully",
-      user: {
-        id: updatedUsers[0].id,
-        email: updatedUsers[0].email,
-        firstName: updatedUsers[0].first_name,
-        lastName: updatedUsers[0].last_name,
-        accountStatus: updatedUsers[0].account_status,
-        pwdLogin: Boolean(updatedUsers[0].pwdLogin),
-        googleOauth: Boolean(updatedUsers[0].googleOauth),
-        googleEmail: updatedUsers[0].USER_GOOGLE_EMAIL,
-      },
-    });
-  } catch (error) {
-    console.error("Admin update user error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to update user",
-    });
   }
 });
 

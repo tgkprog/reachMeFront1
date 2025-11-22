@@ -1,0 +1,13 @@
+*** Begin Patch
+*** Add File: patches/react-native-webview+12.4.0.patch
++diff --git a/node_modules/react-native-webview/android/build.gradle b/node_modules/react-native-webview/android/build.gradle
++index 0000000..0000000 100644
++--- a/node_modules/react-native-webview/android/build.gradle
+++++ b/node_modules/react-native-webview/android/build.gradle
++@@
+-        codegenDir = new File(codegenPath)
+-        reactNativeDir = new File(reactNativePath)
++        codegenDir = codegenPath ? new File(codegenPath) : null
++        reactNativeDir = reactNativePath ? new File(reactNativePath) : null
++
+*** End Patch

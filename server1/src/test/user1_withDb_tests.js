@@ -235,16 +235,22 @@ async function createTestUser() {
   console.log("\n👤 Creating test user via API...");
 
   try {
-    const response = await makeRequest("POST", "/user/create", {
-      email: TEST_USER_EMAIL,
-      password: TEST_USER_PWD,
-      pwdLogin: TEST_USER_PWD_LOGIN,
-      googleOauth: TEST_USER_GOOGLE_OAUTH,
-      googleEmail: TEST_USER_GOOGLE_EMAIL,
-      firstName: "Test",
-      lastName: "User",
-      accountStatus: "active",
-    });
+    // Create the test user using the admin token for authorization
+    const response = await makeRequest(
+      "POST",
+      "/admin/users", // Use the admin route (`/admin/users`) which requires admin auth
+      {
+        email: TEST_USER_EMAIL,
+        password: TEST_USER_PWD,
+        pwdLogin: TEST_USER_PWD_LOGIN,
+        googleOauth: TEST_USER_GOOGLE_OAUTH,
+        googleEmail: TEST_USER_GOOGLE_EMAIL,
+        firstName: "Test",
+        lastName: "User",
+        accountStatus: "active",
+      },
+      testData.adminToken
+    );
 
     if (response.status === 201 && response.data.success) {
       testData.userId = response.data.user.id;
