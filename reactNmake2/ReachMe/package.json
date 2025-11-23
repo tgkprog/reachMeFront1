@@ -20,7 +20,7 @@
     "@react-navigation/native": "^6.1.6",
     "@react-navigation/native-stack": "^6.9.12",
     "react-native-webview": "^12.3.0",
-    "patch-package": "^6.5.1"
+    "patch-package": "^8.0.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
